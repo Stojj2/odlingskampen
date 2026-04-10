@@ -3,7 +3,7 @@ set -euo pipefail
 
 APP_DIR="${APP_DIR:-/opt/odlingskampen}"
 APP_USER="${APP_USER:-$USER}"
-APP_PORT="${APP_PORT:-8080}"
+APP_PORT="${APP_PORT:-8180}"
 
 if [[ "$(id -u)" -ne 0 ]]; then
   echo "Kor scriptet som root eller via sudo."

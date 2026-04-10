@@ -99,7 +99,7 @@ docker compose up -d --build
 Appen svarar sedan pa:
 
 ```text
-http://SERVER-IP:8080/login
+http://SERVER-IP:8180/login
 ```
 
 ### Portainer
@@ -151,7 +151,7 @@ docker compose -f compose.proxmox.yaml up -d --build
 Appen blir da tillganglig pa:
 
 ```text
-http://SERVER-IP:8080/login
+http://SERVER-IP:8180/login
 ```
 
 I `compose.proxmox.yaml` sparas driftdata direkt i:
