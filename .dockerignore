@@ -1,0 +1,14 @@
+__pycache__/
+*.pyc
+*.pyo
+*.log
+*.cookies.txt
+tmp-*.png
+auth-test*.json
+auth-old.json
+auth-new.json
+admin-login.json
+participant-login.json
+participant-password.json
+.git/
+.gitignore

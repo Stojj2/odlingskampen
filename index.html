@@ -1,0 +1,607 @@
+<!DOCTYPE html>
+<html lang="sv">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Odlingskampen</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@scania/tegel@1.50.0/dist/tegel/tegel.css" />
+    <link rel="stylesheet" href="styles.css?v=20260411-participant-flow-104" />
+  </head>
+  <body class="scania tds-mode-dark">
+    <div class="workbench-shell" id="workbench-shell">
+      <header class="topbar">
+        <div class="topbar__brand">
+          <p class="eyebrow">Odlingskampen</p>
+          <h1 id="page-title">Admin</h1>
+          <p class="subtitle" id="page-subtitle">
+            Hantera tävlingen, deltagarna och publikskärmen.
+          </p>
+        </div>
+
+        <div class="topbar__aside">
+          <nav class="view-nav" aria-label="Vyval">
+            <a class="view-nav__link" data-nav-view="settings" href="?view=settings">Inställningar</a>
+            <a class="view-nav__link" data-nav-view="operator" href="?view=operator">Deltagare</a>
+            <a class="view-nav__link" data-nav-view="measurement" href="?view=measurement">Mätning</a>
+            <a class="view-nav__link" data-nav-view="presenter" href="?view=presenter">Presentation</a>
+          </nav>
+
+          <div class="header-actions">
+            <div class="status-pill" id="sync-status">Startar upp...</div>
+            <button class="ghost-button" id="logout-btn" type="button">Logga ut</button>
+          </div>
+        </div>
+      </header>
+
+      <p class="topbar-notice" id="global-notice" aria-live="polite"></p>
+
+      <main class="workbench">
+        <section class="view-page" id="settings-view">
+          <div class="page-grid page-grid--settings">
+            <article class="panel">
+              <div class="panel-head">
+                <div>
+                  <p class="panel-kicker">Tävlingsram</p>
+                  <h2>Grundinställningar</h2>
+                </div>
+              </div>
+
+              <form class="stack-form" id="event-form">
+                <label class="field">
+                  <span class="field-label">Tävlingsnamn</span>
+                  <input
+                    id="event-name"
+                    name="eventName"
+                    type="text"
+                    maxlength="120"
+                    placeholder="Odlingskampen 2026"
+                    required
+                  />
+                </label>
+
+                <label class="field">
+                  <span class="field-label">Underrubrik</span>
+                  <input
+                    id="event-subtitle"
+                    name="eventSubtitle"
+                    type="text"
+                    maxlength="140"
+                    placeholder="Live från företagets stora fruktvägning"
+                  />
+                </label>
+
+                <div class="button-row">
+                  <button class="primary-button" type="submit">Spara tävlingsinfo</button>
+                  <button class="ghost-button" id="load-demo-btn" type="button">Ladda demo</button>
+                  <button class="ghost-button ghost-button--danger" id="reset-btn" type="button">Nollställ</button>
+                </div>
+              </form>
+
+              <div class="note-card">
+                <p class="note-card__label">Aktiv tävling</p>
+                <strong id="settings-active-competition">-</strong>
+                <p class="helper-text">
+                  Detta är den tävling som appen, presentationsskärmen och deltagarinloggningen arbetar mot just nu.
+                </p>
+                <div class="button-row">
+                  <button class="primary-button" id="competition-create-btn" type="button">Starta ny tävling</button>
+                </div>
+              </div>
+            </article>
+
+            <article class="panel">
+              <div class="panel-head">
+                <div>
+                  <p class="panel-kicker">Status</p>
+                  <h2>Snabb översikt</h2>
+                </div>
+              </div>
+
+              <div class="summary-grid">
+                <div class="summary-card">
+                  <span class="summary-label">Deltagare</span>
+                  <strong id="summary-total">0</strong>
+                </div>
+                <div class="summary-card">
+                  <span class="summary-label">Invägda</span>
+                  <strong id="summary-weighed">0</strong>
+                </div>
+                <div class="summary-card">
+                  <span class="summary-label">Återstår</span>
+                  <strong id="summary-remaining">0</strong>
+                </div>
+                <div class="summary-card">
+                  <span class="summary-label">Ledare</span>
+                  <strong id="summary-leader">-</strong>
+                </div>
+              </div>
+
+              <div class="note-card">
+                <p class="note-card__label">Live-visning</p>
+                <strong id="settings-presentation-mode">Scoreboard</strong>
+                <p class="helper-text" id="settings-presentation-copy">
+                  Publikskärmen visar för närvarande leaderboarden.
+                </p>
+              </div>
+
+              <p class="operator-message" id="operator-message" aria-live="polite"></p>
+
+              <div class="competition-history">
+                <div class="competition-history__head">
+                  <div>
+                    <p class="note-card__label">Tävlingshistorik</p>
+                    <p class="helper-text">Här ser du tidigare år och kan välja vilken tävling som ska vara aktiv.</p>
+                  </div>
+                </div>
+                <div class="competition-history__list" id="competition-history-list"></div>
+              </div>
+            </article>
+          </div>
+        </section>
+
+        <section class="view-page" id="operator-view">
+          <div class="page-grid page-grid--operator">
+            <div class="stack-column">
+              <article class="panel">
+                <div class="panel-head">
+                  <div>
+                    <p class="panel-kicker">Deltagare</p>
+                    <h2>Välj deltagare</h2>
+                    <p class="helper-text">
+                      Registrera nya deltagare, sök i listan och välj sedan vem du vill arbeta med.
+                    </p>
+                  </div>
+                  <button class="primary-button" id="participant-open-create-btn" type="button">Registrera ny deltagare</button>
+                </div>
+
+                <label class="field">
+                  <span class="field-label">Sök deltagare</span>
+                  <input id="participant-search" type="search" maxlength="80" placeholder="Sök på namn, avdelning eller inloggningsnamn" />
+                </label>
+
+                <label class="field">
+                  <span class="field-label">Alla deltagare</span>
+                  <select id="participant-select"></select>
+                </label>
+                <p class="helper-text" id="participant-search-summary">Visar alla deltagare.</p>
+              </article>
+
+              <article class="panel">
+                <div class="panel-head">
+                  <div>
+                    <p class="panel-kicker">Deltagarinfo</p>
+                    <h2>Redigera vald deltagare</h2>
+                    <p class="helper-text">
+                      Ändra uppgifter och inloggning för deltagaren du valt i kortet ovan.
+                    </p>
+                  </div>
+                </div>
+                <form class="stack-form" id="participant-form">
+                  <label class="field">
+                    <span class="field-label">Namn</span>
+                    <input id="participant-name" type="text" maxlength="80" placeholder="Anna Andersson" />
+                  </label>
+
+                  <label class="field">
+                    <span class="field-label">Lag eller avdelning</span>
+                    <input id="participant-team" type="text" maxlength="80" placeholder="Produktion" />
+                  </label>
+
+                  <label class="field">
+                    <span class="field-label">Inloggningsnamn</span>
+                    <input id="participant-username-preview" type="text" readonly />
+                    <span class="helper-text" id="participant-username-hint">
+                      Skapas automatiskt från namnet, till exempel Anna.Andersson.
+                    </span>
+                  </label>
+
+                  <label class="field">
+                    <span class="field-label">Deltagarlösenord</span>
+                    <input
+                      id="participant-password"
+                      type="password"
+                      maxlength="120"
+                      autocomplete="new-password"
+                      placeholder="Sätt eller byt lösenord"
+                    />
+                    <span class="helper-text">Nya deltagare får standardlösenordet Odlingskampen. Lämna tomt om nuvarande lösenord ska behållas. Minst 3 tecken vid byte.</span>
+                  </label>
+
+                  <div class="button-row">
+                    <button class="primary-button" id="participant-save-btn" type="submit">Spara ändringar</button>
+                    <button class="ghost-button ghost-button--danger" id="participant-delete-btn" type="button">
+                      Ta bort deltagare
+                    </button>
+                  </div>
+                </form>
+              </article>
+
+            </div>
+
+            <article class="panel panel--operator-gallery">
+              <div class="panel-head">
+                <div>
+                  <p class="panel-kicker">Bildsteg</p>
+                  <h2>Koppla bilder</h2>
+                </div>
+              </div>
+
+              <div class="milestone-grid" id="milestone-grid">
+                <section class="milestone-card">
+                  <div class="milestone-card__head">
+                    <p class="field-label">Steg 1</p>
+                    <h3>Första planta</h3>
+                    <p class="helper-text">När fröet visar första tydliga början till planta.</p>
+                  </div>
+
+                  <div class="stage-preview-shell" data-stage-preview-shell="sprout">
+                    <img data-stage-preview="sprout" class="stage-preview-image" alt="" hidden />
+                    <div class="empty-state" data-stage-empty="sprout">Ingen bild uppladdad ännu.</div>
+                  </div>
+
+                  <label class="ghost-button file-button">
+                    <span>Välj bild</span>
+                    <input data-stage-input="sprout" type="file" accept="image/*" hidden />
+                  </label>
+                  <button class="ghost-button" data-stage-adjust="sprout" type="button">Justera bild</button>
+                  <button class="ghost-button" data-stage-remove="sprout" type="button">Ta bort bild</button>
+                  <p class="helper-text stage-status" data-stage-status="sprout">Ingen bild kopplad.</p>
+                </section>
+
+                <section class="milestone-card">
+                  <div class="milestone-card__head">
+                    <p class="field-label">Steg 2</p>
+                    <h3>Första blomman</h3>
+                    <p class="helper-text">När första blomman pollineras.</p>
+                  </div>
+
+                  <div class="stage-preview-shell" data-stage-preview-shell="flower">
+                    <img data-stage-preview="flower" class="stage-preview-image" alt="" hidden />
+                    <div class="empty-state" data-stage-empty="flower">Ingen bild uppladdad ännu.</div>
+                  </div>
+
+                  <label class="ghost-button file-button">
+                    <span>Välj bild</span>
+                    <input data-stage-input="flower" type="file" accept="image/*" hidden />
+                  </label>
+                  <button class="ghost-button" data-stage-adjust="flower" type="button">Justera bild</button>
+                  <button class="ghost-button" data-stage-remove="flower" type="button">Ta bort bild</button>
+                  <p class="helper-text stage-status" data-stage-status="flower">Ingen bild kopplad.</p>
+                </section>
+
+                <section class="milestone-card">
+                  <div class="milestone-card__head">
+                    <p class="field-label">Steg 3</p>
+                    <h3>Skördad frukt</h3>
+                    <p class="helper-text">När frukten hänger klar och skördas från plantan.</p>
+                  </div>
+
+                  <div class="stage-preview-shell" data-stage-preview-shell="harvest">
+                    <img data-stage-preview="harvest" class="stage-preview-image" alt="" hidden />
+                    <div class="empty-state" data-stage-empty="harvest">Ingen bild uppladdad ännu.</div>
+                  </div>
+
+                  <label class="ghost-button file-button">
+                    <span>Välj bild</span>
+                    <input data-stage-input="harvest" type="file" accept="image/*" hidden />
+                  </label>
+                  <button class="ghost-button" data-stage-adjust="harvest" type="button">Justera bild</button>
+                  <button class="ghost-button" data-stage-remove="harvest" type="button">Ta bort bild</button>
+                  <p class="helper-text stage-status" data-stage-status="harvest">Ingen bild kopplad.</p>
+                </section>
+              </div>
+            </article>
+          </div>
+        </section>
+
+        <section class="view-page" id="measurement-view">
+          <div class="page-grid page-grid--measurement">
+            <article class="panel panel--measurement-entry">
+              <div class="panel-head">
+                <div>
+                  <p class="panel-kicker">Mätning</p>
+                  <h2 id="weigh-panel-title">Ingen deltagare vald</h2>
+                  <p class="helper-text" id="weigh-panel-copy">
+                    Välj en deltagare i listan för att registrera eller uppdatera den personens vikt.
+                  </p>
+                </div>
+              </div>
+
+              <form class="stack-form" id="weigh-in-form">
+                <p class="helper-text helper-text--emphasis" id="weigh-sequence-note">
+                  Tryck Starta för att visa deltagaren på presentationsskärmen innan du matar in vikten.
+                </p>
+
+                <label class="field">
+                  <span class="field-label">Sök deltagare</span>
+                  <input
+                    id="measurement-participant-search"
+                    type="search"
+                    inputmode="search"
+                    autocomplete="off"
+                    placeholder="Sök på namn, avdelning eller login"
+                  />
+                </label>
+
+                <label class="field">
+                  <span class="field-label">Välj deltagare</span>
+                  <select id="measurement-participant-select"></select>
+                </label>
+                <p class="helper-text" id="measurement-participant-search-summary">Visar alla deltagare.</p>
+
+                <label class="field">
+                  <span class="field-label">Vikt i kilo</span>
+                  <input
+                    id="weigh-weight"
+                    type="text"
+                    inputmode="decimal"
+                    autocomplete="off"
+                    placeholder="8,450"
+                    required
+                  />
+                </label>
+
+                <div class="button-row">
+                  <button class="ghost-button" id="weigh-start-btn" type="button">Starta</button>
+                  <button class="primary-button" id="weigh-save-btn" type="submit">Uppdatera vikt</button>
+                  <button class="ghost-button ghost-button--danger" id="weigh-delete-btn" type="button">
+                    Ta bort vikt
+                  </button>
+                </div>
+              </form>
+            </article>
+
+            <article class="panel panel--measurement-status">
+              <div class="panel-head">
+                <div>
+                  <p class="panel-kicker">Översikt</p>
+                  <h2>Senaste status</h2>
+                  <p class="helper-text">
+                    Se vald deltagares aktuella vikt, placering och senaste registrering utan att störa själva mätflödet.
+                  </p>
+                </div>
+              </div>
+
+              <div class="summary-grid summary-grid--measurement">
+                <div class="summary-card">
+                  <span class="summary-label">Aktuell vikt</span>
+                  <strong id="participant-current-weight">-</strong>
+                </div>
+                <div class="summary-card">
+                  <span class="summary-label">Placering</span>
+                  <strong id="participant-current-rank">-</strong>
+                </div>
+                <div class="summary-card">
+                  <span class="summary-label">Senast uppdaterad</span>
+                  <strong id="participant-current-measured-at">-</strong>
+                </div>
+                <div class="summary-card">
+                  <span class="summary-label">Viktstatus</span>
+                  <strong id="participant-current-status">Ej vald</strong>
+                </div>
+              </div>
+            </article>
+          </div>
+        </section>
+
+        <section class="view-page" id="presenter-view">
+          <div class="page-grid page-grid--presenter">
+            <article class="panel">
+              <div class="panel-head">
+                <div>
+                  <p class="panel-kicker">Live-kontroll</p>
+                  <h2>Styr presentationsskärmen</h2>
+                </div>
+              </div>
+
+              <div class="presentation-toggle-row">
+                <button class="toggle-button" id="present-mode-board" type="button">Scoreboard</button>
+                <button class="toggle-button" id="present-mode-spotlight" type="button">Deltagarpresentation</button>
+              </div>
+
+              <div class="presenter-grid">
+                <label class="field">
+                  <span class="field-label">Deltagare i spotlight</span>
+                  <select id="present-participant"></select>
+                </label>
+
+                <label class="field">
+                  <span class="field-label">Växlingsintervall</span>
+                  <select id="present-interval">
+                    <option value="6">6 sekunder</option>
+                    <option value="8">8 sekunder</option>
+                    <option value="10">10 sekunder</option>
+                    <option value="12">12 sekunder</option>
+                    <option value="15">15 sekunder</option>
+                  </select>
+                </label>
+              </div>
+
+              <div class="button-row">
+                <button class="ghost-button" id="present-prev-btn" type="button">Föregående</button>
+                <button class="ghost-button" id="present-next-btn" type="button">Nästa</button>
+                <button class="ghost-button" id="present-autoplay-btn" type="button">Auto av</button>
+                <button class="primary-button" id="present-open-display-btn" type="button">Öppna presentationsskärm</button>
+              </div>
+            </article>
+
+            <article class="panel">
+              <div class="panel-head">
+                <div>
+                  <p class="panel-kicker">Förhandsinfo</p>
+                  <h2>Det som visas nu</h2>
+                </div>
+              </div>
+
+              <div class="presenter-summary">
+                <div class="summary-card">
+                  <span class="summary-label">Läge</span>
+                  <strong id="present-current-mode">Scoreboard</strong>
+                </div>
+                <div class="summary-card">
+                  <span class="summary-label">Aktuell deltagare</span>
+                  <strong id="present-current-participant">-</strong>
+                </div>
+                <div class="summary-card">
+                  <span class="summary-label">Auto</span>
+                  <strong id="present-current-autoplay">Av</strong>
+                </div>
+                <div class="summary-card">
+                  <span class="summary-label">Skärm</span>
+                  <strong id="present-current-screen">Redo</strong>
+                </div>
+              </div>
+
+              <div class="note-card" id="present-current-copy">
+                Scoreboarden visas live. Byt till deltagarpresentation för att lyfta en person i taget med bilder.
+              </div>
+            </article>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <dialog class="modal-dialog" id="participant-create-dialog" aria-labelledby="participant-create-title">
+      <form class="modal-surface stack-form" id="participant-create-form">
+        <div class="modal-header">
+          <div>
+            <p class="panel-kicker">Ny deltagare</p>
+            <h2 id="participant-create-title">Lägg till deltagare</h2>
+            <p class="helper-text">Fyll i grundinformationen här. Mer material kan läggas till efter att deltagaren skapats.</p>
+          </div>
+        </div>
+
+        <label class="field">
+          <span class="field-label">Namn och efternamn</span>
+          <input id="participant-create-name" type="text" maxlength="80" placeholder="Anna Andersson" required />
+        </label>
+
+        <label class="field">
+          <span class="field-label">Avdelning</span>
+          <input id="participant-create-team" type="text" maxlength="80" placeholder="Produktion" />
+        </label>
+
+        <div class="button-row">
+          <button class="primary-button" type="submit">Lägg till deltagare</button>
+          <button class="ghost-button" id="participant-create-cancel-btn" type="button">Avbryt</button>
+        </div>
+      </form>
+    </dialog>
+
+    <div class="display-shell" id="display-shell">
+      <section class="display-screen display-screen--board" id="display-board">
+        <header class="display-header display-header--centered">
+          <h1 id="display-event-name">Odlingskampen</h1>
+          <p id="display-event-subtitle" class="display-subtitle">
+            Företagets live-scoreboard för fruktvägningen.
+          </p>
+        </header>
+
+        <div class="display-board__frame" id="display-board-frame">
+          <div class="board-sequence-layer" id="board-sequence-layer" hidden aria-hidden="true">
+            <article class="board-sequence-card" id="board-sequence-card">
+              <div class="board-sequence-card__rank" id="board-sequence-rank">-</div>
+              <div class="board-sequence-card__copy">
+                <div class="board-sequence-card__name-wrap">
+                  <h2 id="board-sequence-name">Ingen deltagare</h2>
+                </div>
+                <p class="board-sequence-card__team" id="board-sequence-team">-</p>
+                <p class="board-sequence-card__movement" id="board-sequence-movement">Registrerad</p>
+              </div>
+              <div class="board-sequence-card__gallery" id="board-sequence-gallery" hidden></div>
+              <div class="board-sequence-card__weight" id="board-sequence-weight">
+                <span class="board-sequence-card__weight-value" id="board-sequence-weight-value">-</span>
+                <span class="board-sequence-card__weight-unit" id="board-sequence-weight-unit">kg</span>
+              </div>
+            </article>
+          </div>
+          <div class="scoreboard-list" id="scoreboard-list"></div>
+        </div>
+      </section>
+
+      <section class="display-screen display-screen--spotlight" id="display-spotlight">
+        <header class="display-header display-header--centered">
+          <h1 id="spotlight-event-name">Odlingskampen</h1>
+          <p id="spotlight-event-subtitle" class="display-subtitle">
+            En deltagare i taget med växtresa och senaste tävlingsstatus.
+          </p>
+        </header>
+
+        <div class="spotlight-stage" id="spotlight-stage">
+          <div class="spotlight-card" id="spotlight-card">
+            <div class="spotlight-card__copy">
+              <div class="spotlight-card__header">
+                <span class="position-pill" id="spotlight-rank">-</span>
+              </div>
+
+              <h2 id="spotlight-name">Ingen deltagare vald</h2>
+              <p id="spotlight-team" class="spotlight-team">Lägg till deltagare för att starta spotlightläget.</p>
+
+              <div class="spotlight-metrics">
+                <div class="metric-card">
+                  <span class="metric-card__label">Vikt</span>
+                  <strong id="spotlight-weight">-</strong>
+                </div>
+              </div>
+            </div>
+
+            <div class="spotlight-gallery" id="spotlight-gallery"></div>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <dialog class="modal-dialog image-adjust-dialog" id="image-adjust-dialog">
+      <div class="modal-surface image-adjust-surface">
+        <div class="modal-header">
+          <div>
+            <p class="panel-kicker">Bildjustering</p>
+            <h2 id="image-adjust-title">Justera bild</h2>
+            <p class="helper-text" id="image-adjust-copy">Placera bilden snyggt i rutan innan du sparar.</p>
+          </div>
+        </div>
+        <div class="image-adjust-layout">
+          <div class="image-adjust-workspace">
+            <p class="field-label image-adjust-preview-label">Presentationsruta</p>
+            <div class="image-adjust-preview-shell image-adjust-preview-shell--workspace">
+              <img id="image-adjust-preview" class="image-adjust-preview-image image-adjust-preview-image--workspace" alt="" hidden />
+              <div class="empty-state" id="image-adjust-empty">Ingen bild vald.</div>
+            </div>
+            <p class="helper-text image-adjust-workspace-copy">Den här rutan matchar bildytan på presentationsskärmen.</p>
+          </div>
+          <div class="image-adjust-controls">
+            <label class="field">
+              <span class="field-label">Zoom</span>
+              <input id="image-adjust-scale" type="range" min="1" max="2.5" step="0.01" />
+            </label>
+            <label class="field">
+              <span class="field-label">Flytta sidled</span>
+              <input id="image-adjust-offset-x" type="range" min="-35" max="35" step="1" />
+            </label>
+            <label class="field">
+              <span class="field-label">Flytta höjdled</span>
+              <input id="image-adjust-offset-y" type="range" min="-35" max="35" step="1" />
+            </label>
+            <div class="image-adjust-result-card">
+              <p class="field-label image-adjust-preview-label">Så här sparas bilden</p>
+              <div class="image-adjust-preview-shell image-adjust-preview-shell--result">
+                <img id="image-adjust-result-preview" class="image-adjust-preview-image image-adjust-preview-image--result" alt="" hidden />
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="button-row">
+          <button class="ghost-button" id="image-adjust-cancel-btn" type="button">Avbryt</button>
+          <button class="primary-button" id="image-adjust-save-btn" type="button">Spara utsnitt</button>
+        </div>
+      </div>
+    </dialog>
+
+    <script type="module">
+      import { defineCustomElements } from "https://cdn.jsdelivr.net/npm/@scania/tegel@1.50.0/loader/index.es2017.js";
+
+      defineCustomElements(window);
+    </script>
+    <script src="app.js?v=20260411-participant-flow-85"></script>
+  </body>
+</html>

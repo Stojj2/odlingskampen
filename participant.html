@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="sv">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Deltagare | Odlingskampen</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@scania/tegel@1.50.0/dist/tegel/tegel.css" />
+    <link rel="stylesheet" href="styles.css?v=20260411-participant-flow-104" />
+  </head>
+  <body class="scania tds-mode-dark participant-page">
+    <div class="workbench-shell participant-shell">
+      <header class="topbar">
+        <div class="topbar__brand">
+          <p class="eyebrow">Odlingskampen</p>
+          <h1>Deltagare</h1>
+        </div>
+
+        <div class="topbar__aside">
+          <div class="status-pill" id="participant-sync-status">Ansluten</div>
+          <div class="header-actions">
+            <button class="ghost-button" id="participant-password-open-btn" type="button">Byt lösenord</button>
+            <button class="ghost-button" id="participant-logout-btn" type="button">Logga ut</button>
+          </div>
+        </div>
+      </header>
+
+      <p class="topbar-notice" id="participant-notice" aria-live="polite"></p>
+
+      <main class="workbench">
+        <section class="view-page">
+          <div class="page-grid participant-page-grid">
+            <article class="panel participant-profile-panel participant-profile-panel--full">
+              <div class="panel-head">
+                <div>
+                  <p class="panel-kicker">Din profil</p>
+                  <h2 id="participant-page-name">Laddar deltagare...</h2>
+                  <p class="helper-text" id="participant-page-login">Inloggad deltagare hämtas från servern.</p>
+                </div>
+              </div>
+
+              <div class="participant-identity">
+                <p class="subtitle" id="participant-page-team">-</p>
+              </div>
+
+              <div class="summary-grid participant-summary-grid">
+                <div class="summary-card">
+                  <span class="summary-label">Placering</span>
+                  <strong id="participant-page-rank">-</strong>
+                </div>
+                <div class="summary-card">
+                  <span class="summary-label">Vikt</span>
+                  <strong id="participant-page-weight">-</strong>
+                </div>
+              </div>
+
+              <form class="participant-password-form" id="participant-password-form">
+                <div class="participant-password-form__head">
+                  <div>
+                    <p class="panel-kicker">Lösenord</p>
+                    <h3>Byt ditt lösenord</h3>
+                    <p class="helper-text">Använd ditt nuvarande lösenord och välj sedan ett nytt.</p>
+                  </div>
+                </div>
+
+                <div class="participant-password-form__grid">
+                  <label class="field">
+                    <span class="field-label">Nuvarande lösenord</span>
+                    <input id="participant-current-password" type="password" maxlength="120" autocomplete="current-password" />
+                  </label>
+
+                  <label class="field">
+                    <span class="field-label">Nytt lösenord</span>
+                    <input id="participant-new-password" type="password" maxlength="120" autocomplete="new-password" />
+                  </label>
+
+                  <label class="field">
+                    <span class="field-label">Bekräfta nytt lösenord</span>
+                    <input id="participant-confirm-password" type="password" maxlength="120" autocomplete="new-password" />
+                  </label>
+                </div>
+
+                <div class="button-row">
+                  <button class="primary-button" id="participant-password-save-btn" type="submit">Byt lösenord</button>
+                </div>
+              </form>
+            </article>
+
+            <article class="panel panel--participant-gallery">
+              <div class="panel-head">
+                <div>
+                  <p class="panel-kicker">Bildsteg</p>
+                  <h2>Dina bilder</h2>
+                </div>
+              </div>
+
+              <div class="milestone-grid participant-milestone-grid">
+                <section class="milestone-card">
+                  <div class="milestone-card__head">
+                    <p class="field-label">Steg 1</p>
+                    <h3>Första planta</h3>
+                    <p class="helper-text">När fröet visar första tydliga början till planta.</p>
+                  </div>
+
+                  <div class="stage-preview-shell" data-stage-preview-shell="sprout">
+                    <img data-stage-preview="sprout" class="stage-preview-image" alt="" hidden />
+                    <div class="empty-state" data-stage-empty="sprout">Ingen bild uppladdad än.</div>
+                  </div>
+
+                  <label class="ghost-button file-button">
+                    <span>Välj bild</span>
+                    <input data-stage-input="sprout" type="file" accept="image/*" hidden />
+                  </label>
+                  <button class="ghost-button" data-stage-adjust="sprout" type="button">Justera bild</button>
+                  <button class="ghost-button" data-stage-remove="sprout" type="button">Ta bort bild</button>
+                  <p class="helper-text stage-status" data-stage-status="sprout">Ingen bild kopplad.</p>
+                </section>
+
+                <section class="milestone-card">
+                  <div class="milestone-card__head">
+                    <p class="field-label">Steg 2</p>
+                    <h3>Första blomman</h3>
+                    <p class="helper-text">När första blomman pollineras.</p>
+                  </div>
+
+                  <div class="stage-preview-shell" data-stage-preview-shell="flower">
+                    <img data-stage-preview="flower" class="stage-preview-image" alt="" hidden />
+                    <div class="empty-state" data-stage-empty="flower">Ingen bild uppladdad än.</div>
+                  </div>
+
+                  <label class="ghost-button file-button">
+                    <span>Välj bild</span>
+                    <input data-stage-input="flower" type="file" accept="image/*" hidden />
+                  </label>
+                  <button class="ghost-button" data-stage-adjust="flower" type="button">Justera bild</button>
+                  <button class="ghost-button" data-stage-remove="flower" type="button">Ta bort bild</button>
+                  <p class="helper-text stage-status" data-stage-status="flower">Ingen bild kopplad.</p>
+                </section>
+
+                <section class="milestone-card">
+                  <div class="milestone-card__head">
+                    <p class="field-label">Steg 3</p>
+                    <h3>Skördad frukt</h3>
+                    <p class="helper-text">När frukten hänger klar och skördas från plantan.</p>
+                  </div>
+
+                  <div class="stage-preview-shell" data-stage-preview-shell="harvest">
+                    <img data-stage-preview="harvest" class="stage-preview-image" alt="" hidden />
+                    <div class="empty-state" data-stage-empty="harvest">Ingen bild uppladdad än.</div>
+                  </div>
+
+                  <label class="ghost-button file-button">
+                    <span>Välj bild</span>
+                    <input data-stage-input="harvest" type="file" accept="image/*" hidden />
+                  </label>
+                  <button class="ghost-button" data-stage-adjust="harvest" type="button">Justera bild</button>
+                  <button class="ghost-button" data-stage-remove="harvest" type="button">Ta bort bild</button>
+                  <p class="helper-text stage-status" data-stage-status="harvest">Ingen bild kopplad.</p>
+                </section>
+              </div>
+            </article>
+
+            <article class="panel participant-standings-panel">
+              <div class="panel-head">
+                <div>
+                  <p class="panel-kicker">Resultat</p>
+                  <h2>Alla deltagare</h2>
+                  <p class="helper-text">Välj tävling för att se aktuell eller tidigare års resultat.</p>
+                </div>
+
+                <label class="field participant-competition-field">
+                  <span class="field-label">Visa tävling</span>
+                  <select id="participant-competition-select"></select>
+                </label>
+              </div>
+
+              <p class="helper-text" id="participant-competition-copy">Laddar tävlingar...</p>
+              <div class="participant-standings-list" id="participant-standings-list"></div>
+            </article>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <dialog class="modal-dialog participant-password-dialog" id="participant-password-dialog">
+      <div class="modal-surface">
+        <div class="modal-header">
+          <div>
+            <p class="panel-kicker">Lösenord</p>
+            <h2>Byt ditt lösenord</h2>
+            <p class="helper-text">Använd ditt nuvarande lösenord och välj sedan ett nytt.</p>
+          </div>
+        </div>
+        <div id="participant-password-dialog-body"></div>
+      </div>
+    </dialog>
+
+    <dialog class="modal-dialog image-adjust-dialog" id="image-adjust-dialog">
+      <div class="modal-surface image-adjust-surface">
+        <div class="modal-header">
+          <div>
+            <p class="panel-kicker">Bildjustering</p>
+            <h2 id="image-adjust-title">Justera bild</h2>
+            <p class="helper-text" id="image-adjust-copy">Placera bilden snyggt i rutan innan du sparar.</p>
+          </div>
+        </div>
+        <div class="image-adjust-layout">
+          <div class="image-adjust-workspace">
+            <p class="field-label image-adjust-preview-label">Presentationsruta</p>
+            <div class="image-adjust-preview-shell image-adjust-preview-shell--workspace" id="image-adjust-workspace-shell">
+              <img id="image-adjust-preview" class="image-adjust-preview-image image-adjust-preview-image--workspace" alt="" hidden />
+              <div class="empty-state" id="image-adjust-empty">Ingen bild vald.</div>
+            </div>
+            <p class="helper-text image-adjust-workspace-copy">Den här rutan matchar bildytan på presentationsskärmen.</p>
+          </div>
+          <div class="image-adjust-controls">
+            <label class="field">
+              <span class="field-label">Zoom</span>
+              <input id="image-adjust-scale" type="range" min="1" max="2.5" step="0.01" />
+            </label>
+            <label class="field">
+              <span class="field-label">Flytta sidled</span>
+              <input id="image-adjust-offset-x" type="range" min="-35" max="35" step="1" />
+            </label>
+            <label class="field">
+              <span class="field-label">Flytta höjdled</span>
+              <input id="image-adjust-offset-y" type="range" min="-35" max="35" step="1" />
+            </label>
+            <div class="image-adjust-result-card">
+              <p class="field-label image-adjust-preview-label">Så här sparas bilden</p>
+              <div class="image-adjust-preview-shell image-adjust-preview-shell--result">
+                <img id="image-adjust-result-preview" class="image-adjust-preview-image image-adjust-preview-image--result" alt="" hidden />
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="button-row">
+          <button class="ghost-button" id="image-adjust-cancel-btn" type="button">Avbryt</button>
+          <button class="primary-button" id="image-adjust-save-btn" type="button">Spara utsnitt</button>
+        </div>
+      </div>
+    </dialog>
+
+    <script type="module">
+      import { defineCustomElements } from "https://cdn.jsdelivr.net/npm/@scania/tegel@1.50.0/loader/index.es2017.js";
+
+      defineCustomElements(window);
+    </script>
+    <script src="participant.js?v=20260411-participant-flow-85"></script>
+  </body>
+</html>

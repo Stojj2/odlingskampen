@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="sv">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Login | Odlingskampen</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@scania/tegel@1.50.0/dist/tegel/tegel.css" />
+    <style>
+      :root {
+        color-scheme: dark;
+        --login-page-bg:
+          radial-gradient(circle at top center, color-mix(in srgb, var(--tds-blue-400) 18%, transparent) 0, transparent 33%),
+          radial-gradient(circle at bottom right, color-mix(in srgb, var(--tds-blue-300) 14%, transparent) 0, transparent 30%),
+          linear-gradient(180deg, var(--tds-blue-900) 0%, var(--tds-blue-800) 100%);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html {
+        min-height: 100%;
+        background: var(--login-page-bg);
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        min-height: 100dvh;
+        display: grid;
+        place-items: center;
+        padding:
+          max(20px, env(safe-area-inset-top))
+          max(20px, env(safe-area-inset-right))
+          max(20px, env(safe-area-inset-bottom))
+          max(20px, env(safe-area-inset-left));
+        background: var(--login-page-bg);
+        color: var(--foreground-text-inverse-strong);
+        font-family: var(--body-01-font-family, "Scania Sans", sans-serif);
+      }
+
+      .login-shell {
+        width: min(100%, 480px);
+        margin: 0 auto;
+        padding: 32px;
+        border-radius: 32px;
+        border: 1px solid color-mix(in srgb, var(--tds-blue-200) 42%, transparent);
+        background: linear-gradient(
+          180deg,
+          color-mix(in srgb, var(--tds-blue-700) 92%, transparent),
+          color-mix(in srgb, var(--tds-blue-800) 96%, transparent)
+        );
+        box-shadow: 0 28px 48px rgba(0, 10, 30, 0.28);
+        backdrop-filter: blur(14px);
+      }
+
+      .eyebrow {
+        margin: 0 0 10px;
+        color: var(--tds-blue-100);
+        font-size: 0.82rem;
+        font-weight: 700;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+      }
+
+      h1 {
+        margin: 0;
+        color: var(--tds-white);
+        font-family: var(--headline-01-font-family, "Scania Sans Headline", sans-serif);
+        font-size: clamp(2rem, 4vw, 3rem);
+        line-height: 0.96;
+      }
+
+      .subtitle {
+        margin: 14px 0 0;
+        color: color-mix(in srgb, var(--tds-white) 90%, transparent);
+        line-height: 1.45;
+      }
+
+      .role-switch {
+        margin-top: 24px;
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px;
+      }
+
+      .role-option {
+        min-height: 48px;
+        border-radius: 999px;
+        border: 1px solid color-mix(in srgb, var(--tds-blue-100) 28%, transparent);
+        background: color-mix(in srgb, var(--tds-blue-800) 92%, transparent);
+        color: var(--tds-white);
+        font-weight: 700;
+        cursor: pointer;
+      }
+
+      .role-option.is-active {
+        background: linear-gradient(180deg, var(--tds-blue-400), var(--tds-blue-500));
+        border-color: color-mix(in srgb, var(--tds-blue-100) 52%, transparent);
+      }
+
+      form {
+        margin-top: 28px;
+        display: grid;
+        gap: 16px;
+      }
+
+      .field {
+        display: grid;
+        gap: 8px;
+      }
+
+      .field-label {
+        color: color-mix(in srgb, var(--tds-white) 90%, transparent);
+        font-size: 0.95rem;
+        font-weight: 600;
+      }
+
+      input {
+        width: 100%;
+        min-height: 52px;
+        padding: 0 16px;
+        border-radius: 18px;
+        border: 1px solid color-mix(in srgb, var(--tds-blue-200) 36%, transparent);
+        background: color-mix(in srgb, var(--tds-blue-700) 90%, transparent);
+        color: var(--tds-white);
+        caret-color: var(--tds-white);
+        -webkit-text-fill-color: var(--tds-white);
+        font-size: 16px;
+      }
+
+      input::placeholder {
+        color: color-mix(in srgb, var(--tds-white) 58%, transparent);
+      }
+
+      input:-webkit-autofill,
+      input:-webkit-autofill:hover,
+      input:-webkit-autofill:focus {
+        -webkit-text-fill-color: var(--tds-white);
+        box-shadow: 0 0 0 1000px color-mix(in srgb, var(--tds-blue-700) 90%, transparent) inset;
+        transition: background-color 9999s ease-out 0s;
+      }
+
+      input:focus {
+        outline: 2px solid color-mix(in srgb, var(--tds-blue-100) 48%, transparent);
+        outline-offset: 2px;
+      }
+
+      #login-submit {
+        min-height: 52px;
+        border: 1px solid color-mix(in srgb, var(--tds-blue-100) 54%, transparent);
+        border-radius: 999px;
+        background: var(--tds-blue-500);
+        color: var(--tds-white);
+        font-weight: 700;
+        font-size: 1rem;
+        cursor: pointer;
+      }
+
+      #login-submit:disabled {
+        opacity: 0.7;
+        cursor: wait;
+      }
+
+      .login-error {
+        min-height: 24px;
+        margin: 4px 0 0;
+        color: #ffd3d3;
+        font-size: 0.92rem;
+      }
+
+      .helper {
+        margin-top: 20px;
+        color: color-mix(in srgb, var(--tds-white) 76%, transparent);
+        font-size: 0.88rem;
+        line-height: 1.45;
+      }
+
+      .helper--compact {
+        margin-top: 8px;
+      }
+
+      @media (max-width: 720px) {
+        body {
+          display: block;
+        }
+
+        .login-shell {
+          width: 100%;
+          min-height: calc(100dvh - 40px);
+          padding: 28px 24px 24px;
+          border-radius: 28px;
+        }
+
+        h1 {
+          font-size: clamp(2.1rem, 10vw, 3rem);
+        }
+
+        .subtitle {
+          margin-top: 12px;
+          font-size: 1rem;
+        }
+
+        .role-switch {
+          margin-top: 22px;
+          gap: 12px;
+        }
+
+        .role-option,
+        #login-submit,
+        input {
+          min-height: 54px;
+        }
+
+        form {
+          margin-top: 24px;
+          gap: 14px;
+        }
+
+        .helper {
+          font-size: 0.92rem;
+        }
+      }
+
+      @media (max-width: 480px) {
+        body {
+          padding:
+            max(12px, env(safe-area-inset-top))
+            max(12px, env(safe-area-inset-right))
+            max(12px, env(safe-area-inset-bottom))
+            max(12px, env(safe-area-inset-left));
+        }
+
+        .login-shell {
+          min-height: calc(100dvh - 24px);
+          padding: 24px 18px 20px;
+          border-radius: 24px;
+        }
+
+        .eyebrow {
+          margin-bottom: 8px;
+          font-size: 0.76rem;
+        }
+
+        h1 {
+          line-height: 0.98;
+        }
+
+        .subtitle {
+          font-size: 0.96rem;
+          line-height: 1.4;
+        }
+
+        .role-switch {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          gap: 10px;
+        }
+
+        .role-option {
+          min-height: 52px;
+          padding: 0 12px;
+        }
+
+        .field-label {
+          font-size: 0.92rem;
+        }
+
+        .helper {
+          font-size: 0.88rem;
+          line-height: 1.4;
+        }
+      }
+
+      @media (max-width: 380px) {
+        .login-shell {
+          padding-inline: 16px;
+        }
+
+        .role-switch {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body class="scania tds-mode-dark">
+    <main class="login-shell">
+      <p class="eyebrow">Odlingskampen</p>
+      <h1>Login</h1>
+      <p class="subtitle" id="login-subtitle">Välj om du vill logga in som admin eller som deltagare.</p>
+
+      <div class="role-switch" role="radiogroup" aria-label="Välj inloggningstyp">
+        <button class="role-option is-active" id="login-role-admin" type="button" data-role="admin" aria-pressed="true">
+          Admin
+        </button>
+        <button class="role-option" id="login-role-participant" type="button" data-role="participant" aria-pressed="false">
+          Deltagare
+        </button>
+      </div>
+
+      <form id="login-form">
+        <label class="field">
+          <span class="field-label">Användarnamn</span>
+          <input id="username" name="username" type="text" autocomplete="username" value="admin" required />
+          <span class="helper helper--compact" id="login-username-helper">
+            Admin använder vanligtvis användarnamnet admin.
+          </span>
+        </label>
+
+        <label class="field">
+          <span class="field-label">Lösenord</span>
+          <input id="password" name="password" type="password" autocomplete="current-password" required />
+        </label>
+
+        <button id="login-submit" type="submit">Logga in</button>
+        <p class="login-error" id="login-error" aria-live="polite"></p>
+      </form>
+
+      <p class="helper" id="login-footer-copy">Admin styr tävlingen, medan deltagare kan logga in för att uppdatera sina bilder.</p>
+    </main>
+
+    <script>
+      const form = document.getElementById("login-form");
+      const usernameInput = document.getElementById("username");
+      const passwordInput = document.getElementById("password");
+      const submitButton = document.getElementById("login-submit");
+      const errorNode = document.getElementById("login-error");
+      const subtitleNode = document.getElementById("login-subtitle");
+      const usernameHelperNode = document.getElementById("login-username-helper");
+      const footerCopyNode = document.getElementById("login-footer-copy");
+      const roleButtons = Array.from(document.querySelectorAll("[data-role]"));
+      const queryNextPath = new URLSearchParams(window.location.search).get("next") || "";
+      let currentRole = queryNextPath.startsWith("/participant.html") ? "participant" : "admin";
+
+      function getDefaultNextPath() {
+        return currentRole === "participant" ? "/participant.html" : "/index.html?view=settings";
+      }
+
+      function selectRole(role) {
+        currentRole = role === "participant" ? "participant" : "admin";
+        roleButtons.forEach((button) => {
+          const isActive = button.dataset.role === currentRole;
+          button.classList.toggle("is-active", isActive);
+          button.setAttribute("aria-pressed", String(isActive));
+        });
+
+        if (currentRole === "participant") {
+          subtitleNode.textContent = "Deltagare kan logga in för att uppdatera sina tre bilder och följa ställningen.";
+          usernameHelperNode.textContent =
+            "För deltagare blir användarnamnet vanligtvis Förnamn.Efternamn, till exempel Anna.Andersson.";
+          footerCopyNode.textContent = "Admin sätter deltagarens lösenord i adminvyn under Deltagare.";
+          if (usernameInput.value.trim().toLowerCase() === "admin") {
+            usernameInput.value = "";
+          }
+          return;
+        }
+
+        subtitleNode.textContent = "Admin loggar in för att styra tävlingen, deltagarna och publikskärmen.";
+        usernameHelperNode.textContent = "Admin använder vanligtvis användarnamnet admin.";
+        footerCopyNode.textContent = "Första versionen använder ett gemensamt adminkonto för tävlingsdagen.";
+        if (!usernameInput.value.trim()) {
+          usernameInput.value = "admin";
+        }
+      }
+
+      roleButtons.forEach((button) => {
+        button.addEventListener("click", () => {
+          selectRole(button.dataset.role);
+        });
+      });
+
+      selectRole(currentRole);
+
+      form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        errorNode.textContent = "";
+        submitButton.disabled = true;
+
+        try {
+          const response = await fetch("/api/login", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              username: usernameInput.value.trim(),
+              password: passwordInput.value,
+              role: currentRole,
+              next: queryNextPath || getDefaultNextPath(),
+            }),
+          });
+
+          const payload = await response.json().catch(() => ({}));
+          if (!response.ok) {
+            errorNode.textContent = payload.error || "Det gick inte att logga in.";
+            submitButton.disabled = false;
+            passwordInput.select();
+            return;
+          }
+
+          window.location.assign(payload.next || queryNextPath || getDefaultNextPath());
+        } catch {
+          errorNode.textContent = "Det gick inte att kontakta servern.";
+          submitButton.disabled = false;
+        }
+      });
+    </script>
+  </body>
+</html>
