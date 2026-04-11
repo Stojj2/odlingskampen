@@ -1316,9 +1316,10 @@ textarea:disabled,
 
 .spotlight-card {
   display: grid;
-  grid-template-rows: minmax(0, 1fr) auto;
+  grid-template-rows: auto auto;
   gap: clamp(16px, 2vw, 22px);
   align-items: stretch;
+  align-content: space-between;
   width: min(100%, 1780px);
   margin: 0 auto;
   padding: clamp(20px, 2.4vw, 30px);
@@ -1392,6 +1393,43 @@ textarea:disabled,
   border-radius: 26px;
   border: 1px solid var(--panel-border);
   background: color-mix(in srgb, var(--tds-blue-600) 82%, transparent);
+}
+
+@media (max-height: 860px), (min-aspect-ratio: 2/1) {
+  .spotlight-card {
+    gap: 14px;
+    padding: clamp(18px, 2vw, 24px);
+    min-height: auto;
+    max-height: min(100%, calc(100vh - 190px));
+  }
+
+  .spotlight-card h2 {
+    margin: 10px 0 -6px;
+    font-size: clamp(1.7rem, 2.8vw, 2.85rem);
+  }
+
+  .spotlight-metrics {
+    margin-top: 4px;
+    min-width: clamp(360px, 30vw, 500px);
+    max-width: min(100%, 500px);
+  }
+
+  .spotlight-metrics .metric-card {
+    min-height: clamp(84px, 10vh, 102px);
+  }
+
+  .spotlight-gallery {
+    gap: 12px;
+  }
+
+  .gallery-card {
+    min-height: clamp(128px, 15vh, 176px);
+  }
+
+  .gallery-card__body {
+    min-height: 54px;
+    padding: 10px 14px 11px;
+  }
 }
 
 .gallery-card__media {
