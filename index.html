@@ -1,24 +1,32 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="sv">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Odlingskampen</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@scania/tegel@1.50.0/dist/tegel/tegel.css" />
-    <link rel="stylesheet" href="styles.css?v=20260411-participant-flow-104" />
+  <link rel="stylesheet" href="styles.css?v=20260411-rules-120" />
   </head>
   <body class="scania tds-mode-dark">
     <div class="workbench-shell" id="workbench-shell">
       <header class="topbar">
         <div class="topbar__brand">
-          <p class="eyebrow">Odlingskampen</p>
+          <div class="topbar__brand-row">
+            <p class="eyebrow">Odlingskampen</p>
+            <button class="menu-toggle" id="menu-toggle-btn" type="button" aria-expanded="false" aria-controls="mobile-topbar-menu" aria-label="Öppna meny">
+              <span></span>
+              <span></span>
+              <span></span>
+            </button>
+          </div>
           <h1 id="page-title">Admin</h1>
+          <p class="topbar-current-view" id="topbar-current-view">Inställningar</p>
           <p class="subtitle" id="page-subtitle">
             Hantera tävlingen, deltagarna och publikskärmen.
           </p>
         </div>
 
-        <div class="topbar__aside">
+        <div class="topbar__aside" id="mobile-topbar-menu">
           <nav class="view-nav" aria-label="Vyval">
             <a class="view-nav__link" data-nav-view="settings" href="?view=settings">Inställningar</a>
             <a class="view-nav__link" data-nav-view="operator" href="?view=operator">Deltagare</a>
@@ -27,8 +35,7 @@
           </nav>
 
           <div class="header-actions">
-            <div class="status-pill" id="sync-status">Startar upp...</div>
-            <button class="ghost-button" id="logout-btn" type="button">Logga ut</button>
+            <button class="ghost-button view-nav__link" id="logout-btn" type="button">Logga ut</button>
           </div>
         </div>
       </header>
@@ -38,7 +45,7 @@
       <main class="workbench">
         <section class="view-page" id="settings-view">
           <div class="page-grid page-grid--settings">
-            <article class="panel">
+            <article class="panel panel--settings-primary">
               <div class="panel-head">
                 <div>
                   <p class="panel-kicker">Tävlingsram</p>
@@ -70,26 +77,28 @@
                   />
                 </label>
 
-                <div class="button-row">
-                  <button class="primary-button" type="submit">Spara tävlingsinfo</button>
-                  <button class="ghost-button" id="load-demo-btn" type="button">Ladda demo</button>
-                  <button class="ghost-button ghost-button--danger" id="reset-btn" type="button">Nollställ</button>
-                </div>
+                <label class="field">
+                  <span class="field-label">Regler</span>
+                  <textarea
+                    id="event-rules"
+                    name="eventRules"
+                    class="competition-rules-textarea"
+                    maxlength="4000"
+                    placeholder="Skriv tävlingsreglerna här så att deltagarna kan läsa dem i sin meny."
+                  ></textarea>
+                </label>
+
               </form>
 
-              <div class="note-card">
-                <p class="note-card__label">Aktiv tävling</p>
-                <strong id="settings-active-competition">-</strong>
-                <p class="helper-text">
-                  Detta är den tävling som appen, presentationsskärmen och deltagarinloggningen arbetar mot just nu.
-                </p>
-                <div class="button-row">
-                  <button class="primary-button" id="competition-create-btn" type="button">Starta ny tävling</button>
-                </div>
+              <div class="button-row settings-action-bar">
+                <button class="primary-button" type="submit" form="event-form">Spara tävlingsinfo</button>
+                <button class="ghost-button" id="load-demo-btn" type="button">Ladda demo</button>
+                <button class="ghost-button ghost-button--danger" id="reset-btn" type="button">Nollställ</button>
+                <button class="primary-button" id="competition-create-btn" type="button">Starta ny tävling</button>
               </div>
             </article>
 
-            <article class="panel">
+            <article class="panel panel--settings-status">
               <div class="panel-head">
                 <div>
                   <p class="panel-kicker">Status</p>
@@ -125,7 +134,9 @@
               </div>
 
               <p class="operator-message" id="operator-message" aria-live="polite"></p>
+            </article>
 
+            <article class="panel panel--settings-history">
               <div class="competition-history">
                 <div class="competition-history__head">
                   <div>
@@ -147,11 +158,7 @@
                   <div>
                     <p class="panel-kicker">Deltagare</p>
                     <h2>Välj deltagare</h2>
-                    <p class="helper-text">
-                      Registrera nya deltagare, sök i listan och välj sedan vem du vill arbeta med.
-                    </p>
                   </div>
-                  <button class="primary-button" id="participant-open-create-btn" type="button">Registrera ny deltagare</button>
                 </div>
 
                 <label class="field">
@@ -164,6 +171,9 @@
                   <select id="participant-select"></select>
                 </label>
                 <p class="helper-text" id="participant-search-summary">Visar alla deltagare.</p>
+                <div class="button-row">
+                  <button class="primary-button" id="participant-open-create-btn" type="button">Registrera ny deltagare</button>
+                </div>
               </article>
 
               <article class="panel">
@@ -171,9 +181,6 @@
                   <div>
                     <p class="panel-kicker">Deltagarinfo</p>
                     <h2>Redigera vald deltagare</h2>
-                    <p class="helper-text">
-                      Ändra uppgifter och inloggning för deltagaren du valt i kortet ovan.
-                    </p>
                   </div>
                 </div>
                 <form class="stack-form" id="participant-form">
@@ -301,17 +308,10 @@
                 <div>
                   <p class="panel-kicker">Mätning</p>
                   <h2 id="weigh-panel-title">Ingen deltagare vald</h2>
-                  <p class="helper-text" id="weigh-panel-copy">
-                    Välj en deltagare i listan för att registrera eller uppdatera den personens vikt.
-                  </p>
                 </div>
               </div>
 
               <form class="stack-form" id="weigh-in-form">
-                <p class="helper-text helper-text--emphasis" id="weigh-sequence-note">
-                  Tryck Starta för att visa deltagaren på presentationsskärmen innan du matar in vikten.
-                </p>
-
                 <label class="field">
                   <span class="field-label">Sök deltagare</span>
                   <input
@@ -466,8 +466,7 @@
         <div class="modal-header">
           <div>
             <p class="panel-kicker">Ny deltagare</p>
-            <h2 id="participant-create-title">Lägg till deltagare</h2>
-            <p class="helper-text">Fyll i grundinformationen här. Mer material kan läggas till efter att deltagaren skapats.</p>
+            <h2 id="participant-create-title">Lägg till</h2>
           </div>
         </div>
 
@@ -530,10 +529,6 @@
         <div class="spotlight-stage" id="spotlight-stage">
           <div class="spotlight-card" id="spotlight-card">
             <div class="spotlight-card__copy">
-              <div class="spotlight-card__header">
-                <span class="position-pill" id="spotlight-rank">-</span>
-              </div>
-
               <h2 id="spotlight-name">Ingen deltagare vald</h2>
               <p id="spotlight-team" class="spotlight-team">Lägg till deltagare för att starta spotlightläget.</p>
 
@@ -541,6 +536,10 @@
                 <div class="metric-card">
                   <span class="metric-card__label">Vikt</span>
                   <strong id="spotlight-weight">-</strong>
+                </div>
+                <div class="metric-card">
+                  <span class="metric-card__label">Placering</span>
+                  <strong id="spotlight-rank">-</strong>
                 </div>
               </div>
             </div>
@@ -557,17 +556,15 @@
           <div>
             <p class="panel-kicker">Bildjustering</p>
             <h2 id="image-adjust-title">Justera bild</h2>
-            <p class="helper-text" id="image-adjust-copy">Placera bilden snyggt i rutan innan du sparar.</p>
           </div>
         </div>
         <div class="image-adjust-layout">
           <div class="image-adjust-workspace">
-            <p class="field-label image-adjust-preview-label">Presentationsruta</p>
+            <p class="field-label image-adjust-preview-label">Bildyta</p>
             <div class="image-adjust-preview-shell image-adjust-preview-shell--workspace">
               <img id="image-adjust-preview" class="image-adjust-preview-image image-adjust-preview-image--workspace" alt="" hidden />
               <div class="empty-state" id="image-adjust-empty">Ingen bild vald.</div>
             </div>
-            <p class="helper-text image-adjust-workspace-copy">Den här rutan matchar bildytan på presentationsskärmen.</p>
           </div>
           <div class="image-adjust-controls">
             <label class="field">
@@ -583,7 +580,7 @@
               <input id="image-adjust-offset-y" type="range" min="-35" max="35" step="1" />
             </label>
             <div class="image-adjust-result-card">
-              <p class="field-label image-adjust-preview-label">Så här sparas bilden</p>
+              <p class="field-label image-adjust-preview-label">Samma utsnitt överallt</p>
               <div class="image-adjust-preview-shell image-adjust-preview-shell--result">
                 <img id="image-adjust-result-preview" class="image-adjust-preview-image image-adjust-preview-image--result" alt="" hidden />
               </div>
@@ -602,6 +599,6 @@
 
       defineCustomElements(window);
     </script>
-    <script src="app.js?v=20260411-participant-flow-85"></script>
+  <script src="app.js?v=20260411-rules-113"></script>
   </body>
 </html>

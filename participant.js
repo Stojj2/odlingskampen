@@ -32,7 +32,10 @@ document.addEventListener("DOMContentLoaded", async () => {
 });
 
 function cacheDom() {
+  dom.menuToggleButton = document.getElementById("participant-menu-toggle-btn");
+  dom.topbarMenu = document.getElementById("participant-mobile-menu");
   dom.syncStatus = document.getElementById("participant-sync-status");
+  dom.rulesOpenButton = document.getElementById("participant-rules-open-btn");
   dom.passwordOpenButton = document.getElementById("participant-password-open-btn");
   dom.logoutButton = document.getElementById("participant-logout-btn");
   dom.notice = document.getElementById("participant-notice");
@@ -53,6 +56,10 @@ function cacheDom() {
   dom.passwordDialog = document.getElementById("participant-password-dialog");
   dom.passwordDialogBody = document.getElementById("participant-password-dialog-body");
   dom.passwordCancelButton = document.getElementById("participant-password-cancel-btn");
+  dom.rulesDialog = document.getElementById("participant-rules-dialog");
+  dom.rulesTitle = document.getElementById("participant-rules-title");
+  dom.rulesCopy = document.getElementById("participant-rules-copy");
+  dom.rulesCloseButton = document.getElementById("participant-rules-close-btn");
   dom.competitionSelect = document.getElementById("participant-competition-select");
   dom.competitionCopy = document.getElementById("participant-competition-copy");
   dom.standingsList = document.getElementById("participant-standings-list");
@@ -92,6 +99,15 @@ function cacheDom() {
   dom.imageAdjustSaveButton = document.getElementById("image-adjust-save-btn");
 }
 
+function setMobileMenuOpen(isOpen) {
+  if (!(dom.menuToggleButton instanceof HTMLButtonElement) || !(dom.topbarMenu instanceof HTMLElement)) {
+    return;
+  }
+
+  dom.menuToggleButton.setAttribute("aria-expanded", String(isOpen));
+  dom.topbarMenu.classList.toggle("is-open", isOpen);
+}
+
 function bindEvents() {
   movePasswordFormToDialog();
 
@@ -99,9 +115,49 @@ function bindEvents() {
     dom.passwordOpenButton.addEventListener("click", openPasswordDialog);
   }
 
+  if (dom.rulesOpenButton instanceof HTMLButtonElement) {
+    dom.rulesOpenButton.addEventListener("click", openRulesDialog);
+  }
+
   dom.logoutButton.addEventListener("click", async () => {
     await logoutSession();
     redirectToLogin();
+  });
+
+  if (dom.menuToggleButton instanceof HTMLButtonElement) {
+    dom.menuToggleButton.addEventListener("click", () => {
+      const isOpen = dom.menuToggleButton.getAttribute("aria-expanded") === "true";
+      setMobileMenuOpen(!isOpen);
+    });
+  }
+
+  document.addEventListener("click", (event) => {
+    if (!(dom.menuToggleButton instanceof HTMLButtonElement) || !(dom.topbarMenu instanceof HTMLElement)) {
+      return;
+    }
+
+    const target = event.target;
+    if (!(target instanceof Node)) {
+      return;
+    }
+
+    if (dom.menuToggleButton.contains(target) || dom.topbarMenu.contains(target)) {
+      return;
+    }
+
+    setMobileMenuOpen(false);
+  });
+
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") {
+      setMobileMenuOpen(false);
+    }
+  });
+
+  window.addEventListener("resize", () => {
+    if (window.innerWidth > 900) {
+      setMobileMenuOpen(false);
+    }
   });
 
   dom.passwordForm.addEventListener("submit", async (event) => {
@@ -245,12 +301,23 @@ function bindEvents() {
     dom.passwordCancelButton.addEventListener("click", closePasswordDialog);
   }
 
+  if (dom.rulesCloseButton instanceof HTMLButtonElement) {
+    dom.rulesCloseButton.addEventListener("click", closeRulesDialog);
+  }
+
   if (dom.passwordDialog instanceof HTMLDialogElement) {
     dom.passwordDialog.addEventListener("cancel", (event) => {
       event.preventDefault();
       closePasswordDialog();
     });
     dom.passwordDialog.addEventListener("close", resetPasswordForm);
+  }
+
+  if (dom.rulesDialog instanceof HTMLDialogElement) {
+    dom.rulesDialog.addEventListener("cancel", (event) => {
+      event.preventDefault();
+      closeRulesDialog();
+    });
   }
 
   if (dom.imageAdjustDialog instanceof HTMLDialogElement) {
@@ -305,6 +372,25 @@ function openPasswordDialog() {
 function closePasswordDialog() {
   if (dom.passwordDialog instanceof HTMLDialogElement && dom.passwordDialog.open) {
     dom.passwordDialog.close();
+  }
+}
+
+function openRulesDialog() {
+  if (!(dom.rulesDialog instanceof HTMLDialogElement)) {
+    return;
+  }
+
+  renderRulesDialog();
+  setMobileMenuOpen(false);
+
+  if (!dom.rulesDialog.open) {
+    dom.rulesDialog.showModal();
+  }
+}
+
+function closeRulesDialog() {
+  if (dom.rulesDialog instanceof HTMLDialogElement && dom.rulesDialog.open) {
+    dom.rulesDialog.close();
   }
 }
 
@@ -363,6 +449,7 @@ function render() {
   renderProfile();
   renderGallery();
   renderCompetitionSelector();
+  renderRulesDialog();
   renderStandings();
 }
 
@@ -383,8 +470,12 @@ function renderProfile() {
     ? `Ditt inloggningsnamn är ${participant.username}.`
     : "Inloggningsnamn saknas.";
   dom.pageTeam.textContent = participant.team || "Ingen avdelning angiven";
-  dom.pageRank.textContent = hasRank ? `Plats ${participant.rank}` : "";
-  dom.pageWeight.textContent = hasWeight ? formatWeight(participant.weightKg) : "";
+  if (dom.pageRank instanceof HTMLElement) {
+    dom.pageRank.textContent = hasRank ? `Plats ${participant.rank}` : "";
+  }
+  if (dom.pageWeight instanceof HTMLElement) {
+    dom.pageWeight.textContent = hasWeight ? formatWeight(participant.weightKg) : "";
+  }
   setProfileMetricVisibility(hasRank, hasWeight);
 }
 
@@ -563,6 +654,22 @@ function renderCompetitionSelector() {
     : `Visar sparade resultat från ${selectedCompetition.eventName}.`;
 }
 
+function renderRulesDialog() {
+  const selectedCompetition = context && context.selectedCompetition ? context.selectedCompetition : null;
+  const competitionName = selectedCompetition && selectedCompetition.eventName ? selectedCompetition.eventName : "TÃ¤vlingen";
+  const rulesText =
+    selectedCompetition && typeof selectedCompetition.eventRules === "string" ? selectedCompetition.eventRules.trim() : "";
+
+  if (dom.rulesTitle instanceof HTMLElement) {
+    dom.rulesTitle.textContent = `Regler fÃ¶r ${competitionName}`;
+  }
+
+  if (dom.rulesCopy instanceof HTMLElement) {
+    dom.rulesCopy.textContent = rulesText || "Inga regler Ã¤r inlagda fÃ¶r den hÃ¤r tÃ¤vlingen Ã¤nnu.";
+    dom.rulesCopy.classList.toggle("is-empty", !rulesText);
+  }
+}
+
 function renderStandings() {
   if (!context || !Array.isArray(context.standings) || !context.standings.length) {
     dom.standingsList.innerHTML = '<div class="display-empty">Inga placeringar är registrerade än.</div>';
@@ -714,6 +821,7 @@ function normalizeParticipantContext(rawContext) {
   return {
     eventName: sanitizeText(input.eventName, 120) || "Odlingskampen",
     eventSubtitle: sanitizeText(input.eventSubtitle, 140),
+    eventRules: sanitizeText(input.eventRules, 4000),
     activeCompetitionId: sanitizeId(input.activeCompetitionId),
     selectedCompetitionId: sanitizeId(input.selectedCompetitionId),
     competitionHistory,
@@ -722,6 +830,7 @@ function normalizeParticipantContext(rawContext) {
       year: sanitizeYear(selectedCompetitionInput.year),
       eventName: sanitizeText(selectedCompetitionInput.eventName, 120),
       eventSubtitle: sanitizeText(selectedCompetitionInput.eventSubtitle, 140),
+      eventRules: sanitizeText(selectedCompetitionInput.eventRules, 4000),
       isActive: Boolean(selectedCompetitionInput.isActive),
       updatedAt: sanitizeTimestamp(selectedCompetitionInput.updatedAt) || "",
     },

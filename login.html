@@ -40,10 +40,10 @@
       }
 
       .login-shell {
-        width: min(100%, 480px);
+        width: min(100%, 400px);
         margin: 0 auto;
-        padding: 32px;
-        border-radius: 32px;
+        padding: 24px;
+        border-radius: 28px;
         border: 1px solid color-mix(in srgb, var(--tds-blue-200) 42%, transparent);
         background: linear-gradient(
           180deg,
@@ -55,7 +55,7 @@
       }
 
       .eyebrow {
-        margin: 0 0 10px;
+        margin: 0 0 8px;
         color: var(--tds-blue-100);
         font-size: 0.82rem;
         font-weight: 700;
@@ -71,21 +71,15 @@
         line-height: 0.96;
       }
 
-      .subtitle {
-        margin: 14px 0 0;
-        color: color-mix(in srgb, var(--tds-white) 90%, transparent);
-        line-height: 1.45;
-      }
-
       .role-switch {
-        margin-top: 24px;
+        margin-top: 18px;
         display: grid;
         grid-template-columns: repeat(2, minmax(0, 1fr));
         gap: 10px;
       }
 
       .role-option {
-        min-height: 48px;
+        min-height: 46px;
         border-radius: 999px;
         border: 1px solid color-mix(in srgb, var(--tds-blue-100) 28%, transparent);
         background: color-mix(in srgb, var(--tds-blue-800) 92%, transparent);
@@ -100,14 +94,14 @@
       }
 
       form {
-        margin-top: 28px;
+        margin-top: 20px;
         display: grid;
-        gap: 16px;
+        gap: 12px;
       }
 
       .field {
         display: grid;
-        gap: 8px;
+        gap: 6px;
       }
 
       .field-label {
@@ -118,9 +112,9 @@
 
       input {
         width: 100%;
-        min-height: 52px;
-        padding: 0 16px;
-        border-radius: 18px;
+        min-height: 48px;
+        padding: 0 14px;
+        border-radius: 16px;
         border: 1px solid color-mix(in srgb, var(--tds-blue-200) 36%, transparent);
         background: color-mix(in srgb, var(--tds-blue-700) 90%, transparent);
         color: var(--tds-white);
@@ -147,7 +141,7 @@
       }
 
       #login-submit {
-        min-height: 52px;
+        min-height: 48px;
         border: 1px solid color-mix(in srgb, var(--tds-blue-100) 54%, transparent);
         border-radius: 999px;
         background: var(--tds-blue-500);
@@ -163,62 +157,37 @@
       }
 
       .login-error {
-        min-height: 24px;
-        margin: 4px 0 0;
+        min-height: 20px;
+        margin: 2px 0 0;
         color: #ffd3d3;
         font-size: 0.92rem;
       }
 
-      .helper {
-        margin-top: 20px;
-        color: color-mix(in srgb, var(--tds-white) 76%, transparent);
-        font-size: 0.88rem;
-        line-height: 1.45;
-      }
-
-      .helper--compact {
-        margin-top: 8px;
-      }
-
       @media (max-width: 720px) {
-        body {
-          display: block;
-        }
-
         .login-shell {
           width: 100%;
-          min-height: calc(100dvh - 40px);
-          padding: 28px 24px 24px;
-          border-radius: 28px;
+          padding: 22px 20px;
+          border-radius: 24px;
         }
 
         h1 {
           font-size: clamp(2.1rem, 10vw, 3rem);
         }
 
-        .subtitle {
-          margin-top: 12px;
-          font-size: 1rem;
-        }
-
         .role-switch {
-          margin-top: 22px;
+          margin-top: 18px;
           gap: 12px;
         }
 
         .role-option,
         #login-submit,
         input {
-          min-height: 54px;
+          min-height: 50px;
         }
 
         form {
-          margin-top: 24px;
-          gap: 14px;
-        }
-
-        .helper {
-          font-size: 0.92rem;
+          margin-top: 18px;
+          gap: 11px;
         }
       }
 
@@ -232,9 +201,8 @@
         }
 
         .login-shell {
-          min-height: calc(100dvh - 24px);
-          padding: 24px 18px 20px;
-          border-radius: 24px;
+          padding: 20px 16px;
+          border-radius: 22px;
         }
 
         .eyebrow {
@@ -244,11 +212,6 @@
 
         h1 {
           line-height: 0.98;
-        }
-
-        .subtitle {
-          font-size: 0.96rem;
-          line-height: 1.4;
         }
 
         .role-switch {
@@ -263,11 +226,6 @@
 
         .field-label {
           font-size: 0.92rem;
-        }
-
-        .helper {
-          font-size: 0.88rem;
-          line-height: 1.4;
         }
       }
 
@@ -286,9 +244,8 @@
     <main class="login-shell">
       <p class="eyebrow">Odlingskampen</p>
       <h1>Login</h1>
-      <p class="subtitle" id="login-subtitle">Välj om du vill logga in som admin eller som deltagare.</p>
 
-      <div class="role-switch" role="radiogroup" aria-label="Välj inloggningstyp">
+      <div class="role-switch" role="radiogroup" aria-label="Valj inloggningstyp">
         <button class="role-option is-active" id="login-role-admin" type="button" data-role="admin" aria-pressed="true">
           Admin
         </button>
@@ -299,23 +256,18 @@
 
       <form id="login-form">
         <label class="field">
-          <span class="field-label">Användarnamn</span>
+          <span class="field-label">Anvandarnamn</span>
           <input id="username" name="username" type="text" autocomplete="username" value="admin" required />
-          <span class="helper helper--compact" id="login-username-helper">
-            Admin använder vanligtvis användarnamnet admin.
-          </span>
         </label>
 
         <label class="field">
-          <span class="field-label">Lösenord</span>
+          <span class="field-label">Losenord</span>
           <input id="password" name="password" type="password" autocomplete="current-password" required />
         </label>
 
         <button id="login-submit" type="submit">Logga in</button>
         <p class="login-error" id="login-error" aria-live="polite"></p>
       </form>
-
-      <p class="helper" id="login-footer-copy">Admin styr tävlingen, medan deltagare kan logga in för att uppdatera sina bilder.</p>
     </main>
 
     <script>
@@ -324,9 +276,6 @@
       const passwordInput = document.getElementById("password");
       const submitButton = document.getElementById("login-submit");
       const errorNode = document.getElementById("login-error");
-      const subtitleNode = document.getElementById("login-subtitle");
-      const usernameHelperNode = document.getElementById("login-username-helper");
-      const footerCopyNode = document.getElementById("login-footer-copy");
       const roleButtons = Array.from(document.querySelectorAll("[data-role]"));
       const queryNextPath = new URLSearchParams(window.location.search).get("next") || "";
       let currentRole = queryNextPath.startsWith("/participant.html") ? "participant" : "admin";
@@ -344,19 +293,12 @@
         });
 
         if (currentRole === "participant") {
-          subtitleNode.textContent = "Deltagare kan logga in för att uppdatera sina tre bilder och följa ställningen.";
-          usernameHelperNode.textContent =
-            "För deltagare blir användarnamnet vanligtvis Förnamn.Efternamn, till exempel Anna.Andersson.";
-          footerCopyNode.textContent = "Admin sätter deltagarens lösenord i adminvyn under Deltagare.";
           if (usernameInput.value.trim().toLowerCase() === "admin") {
             usernameInput.value = "";
           }
           return;
         }
 
-        subtitleNode.textContent = "Admin loggar in för att styra tävlingen, deltagarna och publikskärmen.";
-        usernameHelperNode.textContent = "Admin använder vanligtvis användarnamnet admin.";
-        footerCopyNode.textContent = "Första versionen använder ett gemensamt adminkonto för tävlingsdagen.";
         if (!usernameInput.value.trim()) {
           usernameInput.value = "admin";
         }

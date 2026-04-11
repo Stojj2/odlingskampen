@@ -103,7 +103,13 @@ def allocate_competition_id(year: int, existing_ids: set[str] | None = None) -> 
     return candidate_id[:40]
 
 
-def default_competition(year: int | None = None, event_name: str = "", event_subtitle: str = "", created_at: str = "") -> dict:
+def default_competition(
+    year: int | None = None,
+    event_name: str = "",
+    event_subtitle: str = "",
+    event_rules: str = "",
+    created_at: str = "",
+) -> dict:
     competition_year = sanitize_year(year, current_year())
     timestamp = sanitize_timestamp(created_at) or utc_now_iso()
     return {
@@ -111,6 +117,7 @@ def default_competition(year: int | None = None, event_name: str = "", event_sub
         "year": competition_year,
         "eventName": sanitize_text(event_name, 120) or default_event_name_for_year(competition_year),
         "eventSubtitle": sanitize_text(event_subtitle, 140) or "Företagets live-scoreboard för fruktvägningen.",
+        "eventRules": sanitize_text(event_rules, 4000),
         "participants": [],
         "weighIns": [],
         "presentation": {
@@ -429,6 +436,7 @@ def sanitize_competition(payload: object, fallback_id: str = "", fallback_year: 
         "year": competition_year,
         "eventName": sanitize_text(raw_competition.get("eventName"), 120) or base_competition["eventName"],
         "eventSubtitle": sanitize_text(raw_competition.get("eventSubtitle"), 140) or base_competition["eventSubtitle"],
+        "eventRules": sanitize_text(raw_competition.get("eventRules"), 4000),
         "participants": participants,
         "weighIns": weigh_ins,
         "presentation": sanitize_presentation(raw_competition.get("presentation"), participant_ids),
@@ -738,6 +746,7 @@ def build_competition_history(state_payload: dict) -> list[dict]:
                 "year": competition["year"],
                 "eventName": competition["eventName"],
                 "eventSubtitle": competition["eventSubtitle"],
+                "eventRules": competition.get("eventRules", ""),
                 "participantCount": len(competition.get("participants", [])),
                 "weighedCount": len(ranked_entries),
                 "weighInCount": len(competition.get("weighIns", [])),
@@ -760,6 +769,7 @@ def build_state_response(state_payload: dict, competition_id: str = "") -> dict:
         "activeCompetitionId": active_competition["id"],
         "eventName": selected_competition["eventName"],
         "eventSubtitle": selected_competition["eventSubtitle"],
+        "eventRules": selected_competition.get("eventRules", ""),
         "participants": selected_competition.get("participants", []),
         "weighIns": selected_competition.get("weighIns", []),
         "presentation": selected_competition.get("presentation", default_competition()["presentation"]),
@@ -1112,6 +1122,7 @@ def create_next_competition() -> dict:
         year=next_year,
         event_name=replace_or_append_competition_year(active_competition["eventName"], next_year),
         event_subtitle=active_competition["eventSubtitle"],
+        event_rules=active_competition.get("eventRules", ""),
         created_at=timestamp,
     )
     next_competition["id"] = allocate_competition_id(next_year, existing_ids)
@@ -1192,6 +1203,7 @@ def build_competition_results(state_payload: dict, competition_id: str = "", hig
         "competitionYear": selected_competition["year"],
         "eventName": selected_competition["eventName"],
         "eventSubtitle": selected_competition["eventSubtitle"],
+        "eventRules": selected_competition.get("eventRules", ""),
         "isActive": selected_competition["id"] == active_competition["id"],
         "updatedAt": selected_competition["updatedAt"],
         "standings": [
@@ -1230,6 +1242,7 @@ def build_participant_context(participant_id: str, competition_id: str = "") -> 
     return {
         "eventName": active_competition["eventName"],
         "eventSubtitle": active_competition["eventSubtitle"],
+        "eventRules": active_competition.get("eventRules", ""),
         "activeCompetitionId": active_competition["id"],
         "selectedCompetitionId": selected_results["competitionId"],
         "competitionHistory": build_competition_history(current_state),
@@ -1238,6 +1251,7 @@ def build_participant_context(participant_id: str, competition_id: str = "") -> 
             "year": selected_results["competitionYear"],
             "eventName": selected_results["eventName"],
             "eventSubtitle": selected_results["eventSubtitle"],
+            "eventRules": selected_results.get("eventRules", ""),
             "isActive": selected_results["isActive"],
             "updatedAt": selected_results["updatedAt"],
         },

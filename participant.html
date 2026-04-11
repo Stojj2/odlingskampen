@@ -5,19 +5,27 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Deltagare | Odlingskampen</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@scania/tegel@1.50.0/dist/tegel/tegel.css" />
-    <link rel="stylesheet" href="styles.css?v=20260411-participant-flow-104" />
+  <link rel="stylesheet" href="styles.css?v=20260411-rules-120" />
   </head>
   <body class="scania tds-mode-dark participant-page">
     <div class="workbench-shell participant-shell">
       <header class="topbar">
         <div class="topbar__brand">
-          <p class="eyebrow">Odlingskampen</p>
+          <div class="topbar__brand-row">
+            <p class="eyebrow">Odlingskampen</p>
+            <button class="menu-toggle" id="participant-menu-toggle-btn" type="button" aria-expanded="false" aria-controls="participant-mobile-menu" aria-label="Öppna meny">
+              <span></span>
+              <span></span>
+              <span></span>
+            </button>
+          </div>
           <h1>Deltagare</h1>
         </div>
 
-        <div class="topbar__aside">
+        <div class="topbar__aside" id="participant-mobile-menu">
           <div class="status-pill" id="participant-sync-status">Ansluten</div>
           <div class="header-actions">
+            <button class="ghost-button" id="participant-rules-open-btn" type="button">Regler</button>
             <button class="ghost-button" id="participant-password-open-btn" type="button">Byt lösenord</button>
             <button class="ghost-button" id="participant-logout-btn" type="button">Logga ut</button>
           </div>
@@ -40,17 +48,6 @@
 
               <div class="participant-identity">
                 <p class="subtitle" id="participant-page-team">-</p>
-              </div>
-
-              <div class="summary-grid participant-summary-grid">
-                <div class="summary-card">
-                  <span class="summary-label">Placering</span>
-                  <strong id="participant-page-rank">-</strong>
-                </div>
-                <div class="summary-card">
-                  <span class="summary-label">Vikt</span>
-                  <strong id="participant-page-weight">-</strong>
-                </div>
               </div>
 
               <form class="participant-password-form" id="participant-password-form">
@@ -194,23 +191,38 @@
       </div>
     </dialog>
 
+    <dialog class="modal-dialog participant-rules-dialog" id="participant-rules-dialog">
+      <div class="modal-surface participant-rules-surface">
+        <div class="modal-header">
+          <div>
+            <p class="panel-kicker">Regler</p>
+            <h2 id="participant-rules-title">TÃ¤vlingsregler</h2>
+          </div>
+        </div>
+        <div class="participant-rules-copy" id="participant-rules-copy">
+          Inga regler Ã¤r inlagda fÃ¶r den hÃ¤r tÃ¤vlingen Ã¤nnu.
+        </div>
+        <div class="button-row">
+          <button class="primary-button" id="participant-rules-close-btn" type="button">StÃ¤ng</button>
+        </div>
+      </div>
+    </dialog>
+
     <dialog class="modal-dialog image-adjust-dialog" id="image-adjust-dialog">
       <div class="modal-surface image-adjust-surface">
         <div class="modal-header">
           <div>
             <p class="panel-kicker">Bildjustering</p>
             <h2 id="image-adjust-title">Justera bild</h2>
-            <p class="helper-text" id="image-adjust-copy">Placera bilden snyggt i rutan innan du sparar.</p>
           </div>
         </div>
         <div class="image-adjust-layout">
           <div class="image-adjust-workspace">
-            <p class="field-label image-adjust-preview-label">Presentationsruta</p>
+            <p class="field-label image-adjust-preview-label">Bildyta</p>
             <div class="image-adjust-preview-shell image-adjust-preview-shell--workspace" id="image-adjust-workspace-shell">
               <img id="image-adjust-preview" class="image-adjust-preview-image image-adjust-preview-image--workspace" alt="" hidden />
               <div class="empty-state" id="image-adjust-empty">Ingen bild vald.</div>
             </div>
-            <p class="helper-text image-adjust-workspace-copy">Den här rutan matchar bildytan på presentationsskärmen.</p>
           </div>
           <div class="image-adjust-controls">
             <label class="field">
@@ -226,7 +238,7 @@
               <input id="image-adjust-offset-y" type="range" min="-35" max="35" step="1" />
             </label>
             <div class="image-adjust-result-card">
-              <p class="field-label image-adjust-preview-label">Så här sparas bilden</p>
+              <p class="field-label image-adjust-preview-label">Samma utsnitt överallt</p>
               <div class="image-adjust-preview-shell image-adjust-preview-shell--result">
                 <img id="image-adjust-result-preview" class="image-adjust-preview-image image-adjust-preview-image--result" alt="" hidden />
               </div>
@@ -245,6 +257,6 @@
 
       defineCustomElements(window);
     </script>
-    <script src="participant.js?v=20260411-participant-flow-85"></script>
+    <script src="participant.js?v=20260411-rules-106"></script>
   </body>
 </html>

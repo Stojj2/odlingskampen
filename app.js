@@ -1,4 +1,4 @@
-const STORAGE_KEY = "odlingskampen-state-v2";
+﻿const STORAGE_KEY = "odlingskampen-state-v2";
 const CHANNEL_NAME = "odlingskampen-live";
 const NEW_PARTICIPANT_VALUE = "__new__";
 const DEFAULT_PARTICIPANT_PASSWORD = "Odlingskampen";
@@ -33,20 +33,27 @@ const PARTICIPANT_IMAGE_STAGES = [
 const PAGE_META = {
   settings: {
     title: "Admin",
-    subtitle: "Tävlingsinställningar för namn, underrubrik och historik.",
+    subtitle: "",
   },
   operator: {
     title: "Admin",
-    subtitle: "Editera deltagare, bilder och inloggningsuppgifter.",
+    subtitle: "",
   },
   measurement: {
     title: "Admin",
-    subtitle: "Starta invägningen, mata in vikten och skicka resultatet till presentationsskärmen.",
+    subtitle: "",
   },
   presenter: {
     title: "Admin",
-    subtitle: "Styr publikskärmen mellan scoreboard och deltagarspotlight.",
+    subtitle: "",
   },
+};
+
+const VIEW_LABELS = {
+  settings: "Inställningar",
+  operator: "Deltagare",
+  measurement: "Mätning",
+  presenter: "Presentation",
 };
 
 const dateTimeFormatter = new Intl.DateTimeFormat("sv-SE", {
@@ -76,6 +83,7 @@ const runtime = {
   lastBoardSequenceGallerySignature: "",
   lastBoardSequenceToken: "",
   completedBoardShowcaseSignature: "",
+  lastConsumedBoardShowcaseToken: "",
   imageAdjustSession: null,
   participantSearchQuery: "",
   measurementSearchQuery: "",
@@ -109,8 +117,11 @@ function cacheDom() {
   dom.workbenchShell = document.getElementById("workbench-shell");
   dom.displayShell = document.getElementById("display-shell");
   dom.pageTitle = document.getElementById("page-title");
+  dom.topbarCurrentView = document.getElementById("topbar-current-view");
   dom.pageSubtitle = document.getElementById("page-subtitle");
   dom.navLinks = Array.from(document.querySelectorAll("[data-nav-view]"));
+  dom.menuToggleButton = document.getElementById("menu-toggle-btn");
+  dom.topbarMenu = document.getElementById("mobile-topbar-menu");
   dom.syncStatus = document.getElementById("sync-status");
   dom.logoutButton = document.getElementById("logout-btn");
   dom.globalNotice = document.getElementById("global-notice");
@@ -124,6 +135,7 @@ function cacheDom() {
   dom.eventForm = document.getElementById("event-form");
   dom.eventName = document.getElementById("event-name");
   dom.eventSubtitle = document.getElementById("event-subtitle");
+  dom.eventRules = document.getElementById("event-rules");
   dom.loadDemoButton = document.getElementById("load-demo-btn");
   dom.resetButton = document.getElementById("reset-btn");
   dom.summaryTotal = document.getElementById("summary-total");
@@ -254,11 +266,25 @@ function configureLayout() {
     link.setAttribute("aria-current", isActive ? "page" : "false");
   });
 
+  if (dom.topbarCurrentView instanceof HTMLElement) {
+    dom.topbarCurrentView.textContent = VIEW_LABELS[CURRENT_VIEW] || "";
+  }
+
   if (!DISPLAY_VIEW) {
     const meta = PAGE_META[CURRENT_VIEW] || PAGE_META.operator;
     dom.pageTitle.textContent = meta.title;
     dom.pageSubtitle.textContent = meta.subtitle;
+    dom.pageSubtitle.hidden = !meta.subtitle;
   }
+}
+
+function setMobileMenuOpen(isOpen) {
+  if (!(dom.menuToggleButton instanceof HTMLButtonElement) || !(dom.topbarMenu instanceof HTMLElement)) {
+    return;
+  }
+
+  dom.menuToggleButton.setAttribute("aria-expanded", String(isOpen));
+  dom.topbarMenu.classList.toggle("is-open", isOpen);
 }
 
 function bindEvents() {
@@ -269,12 +295,55 @@ function bindEvents() {
     });
   }
 
+  if (dom.menuToggleButton instanceof HTMLButtonElement) {
+    dom.menuToggleButton.addEventListener("click", () => {
+      const isOpen = dom.menuToggleButton.getAttribute("aria-expanded") === "true";
+      setMobileMenuOpen(!isOpen);
+    });
+  }
+
+  document.addEventListener("click", (event) => {
+    if (!(dom.menuToggleButton instanceof HTMLButtonElement) || !(dom.topbarMenu instanceof HTMLElement)) {
+      return;
+    }
+
+    const target = event.target;
+    if (!(target instanceof Node)) {
+      return;
+    }
+
+    if (dom.menuToggleButton.contains(target) || dom.topbarMenu.contains(target)) {
+      return;
+    }
+
+    setMobileMenuOpen(false);
+  });
+
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") {
+      setMobileMenuOpen(false);
+    }
+  });
+
+  dom.navLinks.forEach((link) => {
+    link.addEventListener("click", () => {
+      setMobileMenuOpen(false);
+    });
+  });
+
+  window.addEventListener("resize", () => {
+    if (window.innerWidth > 900) {
+      setMobileMenuOpen(false);
+    }
+  });
+
   dom.eventForm.addEventListener("submit", async (event) => {
     event.preventDefault();
     await persistState({
       ...state,
       eventName: sanitizeText(dom.eventName.value, 120) || createDefaultState().eventName,
       eventSubtitle: sanitizeText(dom.eventSubtitle.value, 140) || createDefaultState().eventSubtitle,
+      eventRules: sanitizeText(dom.eventRules.value, 4000),
     });
     notify("Tävlingsinställningarna är sparade.");
   });
@@ -907,6 +976,7 @@ function render(force = false) {
 function renderSettings() {
   syncInputValue(dom.eventName, state.eventName);
   syncInputValue(dom.eventSubtitle, state.eventSubtitle);
+  syncInputValue(dom.eventRules, state.eventRules);
   dom.summaryTotal.textContent = String(standings.total);
   dom.summaryWeighed.textContent = String(standings.ranked.length);
   dom.summaryRemaining.textContent = String(standings.waiting.length);
@@ -917,7 +987,9 @@ function renderSettings() {
   const spotlightState = getSpotlightState(state, standings);
   dom.settingsPresentationMode.textContent = getModeLabel(state.presentation.mode);
   dom.settingsPresentationCopy.textContent = buildPresentationCopy(spotlightState);
-  dom.settingsActiveCompetition.textContent = state.eventName || "-";
+  if (dom.settingsActiveCompetition) {
+    dom.settingsActiveCompetition.textContent = state.eventName || "-";
+  }
   dom.competitionHistoryList.innerHTML = buildCompetitionHistoryMarkup(state.competitionHistory || []);
 }
 
@@ -1035,7 +1107,7 @@ function openImageAdjustDialog(participantId, stageKey, imageValue = null) {
     dom.imageAdjustTitle.textContent = `Justera ${stage.label}`;
   }
   if (dom.imageAdjustCopy instanceof HTMLElement) {
-    dom.imageAdjustCopy.textContent = `Justera bilden i samma ruta som används på presentationsskärmen för ${participant.name}.`;
+    dom.imageAdjustCopy.textContent = `Justera bilden så att samma utsnitt används i alla bildkort för ${participant.name}.`;
   }
 
   syncImageAdjustControls(image);
@@ -1189,11 +1261,13 @@ function renderWeighInSection() {
   dom.measurementParticipantSearch.disabled = !state.participants.length;
   dom.measurementParticipantSelect.disabled = !filteredParticipants.length;
   dom.weighPanelTitle.textContent = visibleParticipant ? `Invägning för ${visibleParticipant.name}` : "Ingen deltagare vald";
-  dom.weighPanelCopy.textContent = visibleParticipant
-    ? "Starta deltagaren på publikskärmen och lås sedan upp viktinmatningen när det är dags att väga frukten."
-    : state.participants.length
-      ? "Sök eller välj en deltagare i listan för att registrera eller uppdatera den personens vikt."
-      : "Registrera deltagare först innan du börjar med mätning.";
+  if (dom.weighPanelCopy instanceof HTMLElement) {
+    dom.weighPanelCopy.textContent = visibleParticipant
+      ? "Starta deltagaren på publikskärmen och lås sedan upp viktinmatningen när det är dags att väga frukten."
+      : state.participants.length
+        ? "Sök eller välj en deltagare i listan för att registrera eller uppdatera den personens vikt."
+        : "Registrera deltagare först innan du börjar med mätning.";
+  }
   dom.participantCurrentWeight.textContent = selectedEntry && selectedEntry.hasWeight ? formatWeight(selectedEntry.weightKg) : "-";
   dom.participantCurrentRank.textContent =
     selectedEntry && selectedEntry.hasWeight && selectedEntry.rank ? `Plats ${selectedEntry.rank}` : "-";
@@ -1207,15 +1281,17 @@ function renderWeighInSection() {
         : selectedEntry && selectedEntry.hasWeight
           ? "Registrerad"
           : "Redo att starta";
-  dom.weighSequenceNote.textContent = !visibleParticipant
-    ? state.participants.length
-      ? "Sök eller välj en deltagare för att starta invägningen."
-      : "Registrera deltagare först för att kunna starta invägningen."
-    : isStartedForSelected
-      ? "Viktinmatningen är upplåst. Mata in vikten och tryck Uppdatera vikt när frukten är klar på vågen."
-      : isCountingForSelected
-        ? "Publikskärmen räknar just nu upp vikten och placerar sedan deltagaren i listan."
-        : "Tryck Starta för att visa deltagaren stort på presentationsskärmen innan viktinmatningen öppnas.";
+  if (dom.weighSequenceNote instanceof HTMLElement) {
+    dom.weighSequenceNote.textContent = !visibleParticipant
+      ? state.participants.length
+        ? "Sök eller välj en deltagare för att starta invägningen."
+        : "Registrera deltagare först för att kunna starta invägningen."
+      : isStartedForSelected
+        ? "Viktinmatningen är upplåst. Mata in vikten och tryck Uppdatera vikt när frukten är klar på vågen."
+        : isCountingForSelected
+          ? "Publikskärmen räknar just nu upp vikten och placerar sedan deltagaren i listan."
+          : "Tryck Starta för att visa deltagaren stort på presentationsskärmen innan viktinmatningen öppnas.";
+  }
   dom.weighWeight.disabled = !visibleParticipant || !isStartedForSelected;
   dom.weighStartButton.disabled = !visibleParticipant;
   dom.weighSaveButton.disabled = !visibleParticipant || !isStartedForSelected;
@@ -1283,11 +1359,13 @@ function renderScoreboardDisplay(currentStandings, force = false) {
   const weighInShowcase = getActiveWeighInShowcase(state.presentation);
   setScoreboardDensity(rankedEntries.length);
 
+  if (!weighInShowcase.participantId || weighInShowcase.phase === WEIGH_IN_SHOWCASE_PHASES.IDLE) {
+    pinBoardListToTopIfIdle();
+  }
+
   if (!rankedEntries.length) {
     if (!weighInShowcase.participantId) {
       cancelBoardWeighInSequence(true);
-      runtime.lastBoardShowcaseSignature = "";
-      runtime.completedBoardShowcaseSignature = "";
       dom.scoreboardList.innerHTML =
       '<div class="display-empty">Första invägningen dyker upp här så snart ni registrerar en frukt.</div>';
     } else {
@@ -1388,9 +1466,8 @@ function syncBoardWeighInShowcase(rankedEntries, latestWeighIn) {
 
   const weighInShowcase = getActiveWeighInShowcase(state.presentation);
   if (!weighInShowcase.participantId || weighInShowcase.phase === WEIGH_IN_SHOWCASE_PHASES.IDLE) {
-    runtime.lastBoardShowcaseSignature = "";
-    runtime.completedBoardShowcaseSignature = "";
     cancelBoardWeighInSequence(true);
+    pinBoardListToTopIfIdle();
     return;
   }
 
@@ -1400,6 +1477,12 @@ function syncBoardWeighInShowcase(rankedEntries, latestWeighIn) {
   }
 
   const signature = getBoardShowcaseSignature(weighInShowcase);
+  if (isConsumedBoardShowcaseToken(weighInShowcase.token)) {
+    runtime.lastBoardShowcaseSignature = signature;
+    pinBoardListToTop(true);
+    return;
+  }
+
   if (
     weighInShowcase.phase === WEIGH_IN_SHOWCASE_PHASES.COUNTUP &&
     runtime.completedBoardShowcaseSignature === signature
@@ -1938,6 +2021,33 @@ function setBoardListOffset(offsetY) {
   dom.scoreboardList.style.transform = `translateY(${offsetY}px)`;
 }
 
+function pinBoardListToTop(force = false) {
+  if (!DISPLAY_VIEW || !(dom.scoreboardList instanceof HTMLElement)) {
+    return;
+  }
+
+  const activeShowcase = getActiveWeighInShowcase(state.presentation);
+  if (!force && activeShowcase.participantId && activeShowcase.phase !== WEIGH_IN_SHOWCASE_PHASES.IDLE) {
+    return;
+  }
+
+  setBoardListOffset(0);
+  window.requestAnimationFrame(() => {
+    const latestShowcase = getActiveWeighInShowcase(state.presentation);
+    if (
+      force ||
+      !latestShowcase.participantId ||
+      latestShowcase.phase === WEIGH_IN_SHOWCASE_PHASES.IDLE
+    ) {
+      setBoardListOffset(0);
+    }
+  });
+}
+
+function pinBoardListToTopIfIdle() {
+  pinBoardListToTop(false);
+}
+
 function cancelBoardWeighInSequence(resetList = false, options = {}) {
   const preserveLayer = Boolean(options.preserveLayer);
   const preserveGallery = Boolean(options.preserveGallery);
@@ -2115,6 +2225,15 @@ function getBoardShowcaseSignature(weighInShowcase) {
   return `${weighInShowcase.token}:${weighInShowcase.phase}:${weighInShowcase.finalWeightKg ?? ""}`;
 }
 
+function isConsumedBoardShowcaseToken(token) {
+  const normalizedToken = sanitizeId(token);
+  if (!normalizedToken || !runtime.lastConsumedBoardShowcaseToken) {
+    return false;
+  }
+
+  return runtime.lastConsumedBoardShowcaseToken === normalizedToken;
+}
+
 async function consumeCompletedWeighInShowcase(signature, runId) {
   if (!signature || runId !== runtime.boardSequenceRunId) {
     return;
@@ -2125,6 +2244,8 @@ async function consumeCompletedWeighInShowcase(signature, runId) {
     return;
   }
 
+  runtime.lastConsumedBoardShowcaseToken = sanitizeId(activeShowcase.token);
+
   await persistState({
     ...state,
     presentation: {
@@ -2132,6 +2253,7 @@ async function consumeCompletedWeighInShowcase(signature, runId) {
       weighInShowcase: createEmptyWeighInShowcase(),
     },
   });
+  pinBoardListToTopIfIdle();
 }
 
 function setScoreboardDensity(entryCount) {
@@ -2216,8 +2338,6 @@ function renderSpotlightDisplay(spotlightState, force = false) {
             <div class="gallery-card__media gallery-card__media--placeholder">Ingen bild</div>
             <div class="gallery-card__body">
               <p class="gallery-card__kicker">${stage.label}</p>
-              <h3>Väntar på uppladdning</h3>
-              <p class="gallery-card__copy">${stage.emptyLabel}</p>
             </div>
           </article>
         `,
@@ -2263,8 +2383,6 @@ function renderGalleryCard(entry, stage) {
         <div class="gallery-card__media gallery-card__media--placeholder">Ingen bild</div>
         <div class="gallery-card__body">
           <p class="gallery-card__kicker">${stage.label}</p>
-          <h3>Steg väntar</h3>
-          <p class="gallery-card__copy">${stage.emptyLabel}</p>
         </div>
       </article>
     `;
@@ -2297,6 +2415,10 @@ function ensureRuntimeSelections() {
 }
 
 function renderSyncStatus() {
+  if (!(dom.syncStatus instanceof HTMLElement)) {
+    return;
+  }
+
   dom.syncStatus.classList.remove("is-server", "is-local", "is-warning");
 
   if (runtime.syncMode === "server") {
@@ -2839,6 +2961,7 @@ function createDefaultState() {
     competitionHistory: [],
     eventName: "Odlingskampen",
     eventSubtitle: "Företagets live-scoreboard för fruktvägningen.",
+    eventRules: "",
     participants: [],
     weighIns: [],
     presentation: {
@@ -2994,6 +3117,7 @@ function normalizeState(rawState) {
     competitionHistory,
     eventName: sanitizeText(input.eventName, 120) || "Odlingskampen",
     eventSubtitle: sanitizeText(input.eventSubtitle, 140) || "Företagets live-scoreboard för fruktvägningen.",
+    eventRules: sanitizeText(input.eventRules, 4000),
     participants,
     weighIns,
     presentation: normalizePresentation(input.presentation, participants),
