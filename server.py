@@ -40,6 +40,20 @@ IMAGE_EXTENSIONS = {
     "image/gif": ".gif",
     "image/avif": ".avif",
 }
+PUBLIC_STATIC_EXTENSIONS = {
+    ".css",
+    ".js",
+    ".png",
+    ".jpg",
+    ".jpeg",
+    ".webp",
+    ".gif",
+    ".svg",
+    ".ico",
+    ".woff",
+    ".woff2",
+    ".ttf",
+}
 SESSION_COOKIE_NAME = "odlingskampen_session"
 SESSION_TTL_SECONDS = 24 * 60 * 60
 PASSWORD_ITERATIONS = 200_000
@@ -1180,6 +1194,11 @@ def delete_competition(competition_id: str) -> dict:
 def build_competition_results(state_payload: dict, competition_id: str = "", highlight_participant_id: str = "") -> dict:
     active_competition = get_active_competition(state_payload)
     selected_competition = get_competition_by_id(state_payload, competition_id) or active_competition
+    participant_map = {
+        participant["id"]: participant
+        for participant in selected_competition.get("participants", [])
+        if isinstance(participant, dict) and sanitize_id(participant.get("id"))
+    }
     ranked_standings = build_standings(selected_competition)
     rank_map = {entry["id"]: entry for entry in ranked_standings}
     waiting_entries = sorted(
@@ -1216,6 +1235,7 @@ def build_competition_results(state_payload: dict, competition_id: str = "", hig
                 "measuredAt": entry.get("measuredAt", ""),
                 "hasWeight": entry["weightKg"] is not None,
                 "isSelf": bool(highlight_participant_id) and entry["id"] == highlight_participant_id,
+                "images": participant_map.get(entry["id"], {}).get("images", sanitize_participant_images({})),
             }
             for entry in all_entries
         ],
@@ -1237,6 +1257,7 @@ def build_participant_context(participant_id: str, competition_id: str = "") -> 
         competition_id,
         participant_id if sanitize_id(competition_id) in {"", active_competition["id"]} else "",
     )
+    selected_competition = get_competition_by_id(current_state, selected_results["competitionId"]) or active_competition
     active_standing_entry = next((entry for entry in active_results["standings"] if entry["id"] == participant_id), None)
 
     return {
@@ -1266,6 +1287,11 @@ def build_participant_context(participant_id: str, competition_id: str = "") -> 
             "measuredAt": active_standing_entry["measuredAt"] if active_standing_entry else None,
         },
         "standings": selected_results["standings"],
+        "participantImagesById": {
+            candidate["id"]: sanitize_participant_images(candidate.get("images"))
+            for candidate in selected_competition.get("participants", [])
+            if isinstance(candidate, dict) and sanitize_id(candidate.get("id"))
+        },
         "updatedAt": active_competition["updatedAt"],
     }
 
@@ -1403,6 +1429,10 @@ class AppHandler(SimpleHTTPRequestHandler):
             self.send_error(HTTPStatus.NOT_FOUND, "Unknown endpoint")
             return
 
+        if self._is_public_static_path(parsed.path):
+            super().do_GET()
+            return
+
         session = self._require_auth(parsed)
         if session is None:
             return
@@ -1531,8 +1561,7 @@ class AppHandler(SimpleHTTPRequestHandler):
         body = payload if isinstance(payload, dict) else {}
         username = sanitize_text(body.get("username"), 80)
         password = body.get("password") if isinstance(body.get("password"), str) else ""
-        role = sanitize_text(body.get("role"), 20).lower()
-        session_payload = resolve_login_credentials(username, password, role)
+        session_payload = resolve_login_credentials(username, password)
 
         if session_payload is None:
             self._send_json({"error": "Fel användarnamn eller lösenord."}, status=HTTPStatus.UNAUTHORIZED)
@@ -1581,7 +1610,7 @@ class AppHandler(SimpleHTTPRequestHandler):
             return default_target
 
         if session.get("role") == "participant":
-            return next_target if next_target.startswith("/participant.html") else default_target
+            return next_target if next_target.startswith(("/participant.html", "/participant-standings.html")) else default_target
 
         if next_target == "/" or next_target.startswith("/index.html"):
             return next_target if next_target != "/" else default_target
@@ -1592,9 +1621,18 @@ class AppHandler(SimpleHTTPRequestHandler):
             return True
         if path == "/index.html":
             return session.get("role") == "admin"
-        if path == "/participant.html":
+        if path in {"/participant.html", "/participant-standings.html"}:
             return session.get("role") == "participant"
         return False
+
+    def _is_public_static_path(self, path: str) -> bool:
+        if not path or path == "/" or path.startswith("/api/"):
+            return False
+        if path.startswith("/data/"):
+            return False
+        if path.startswith("/uploads/"):
+            return True
+        return Path(path).suffix.lower() in PUBLIC_STATIC_EXTENSIONS
 
     def _get_session_token(self) -> str:
         cookie_header = self.headers.get("Cookie", "")

@@ -1,0 +1,1119 @@
+body.tegel-page,
+body.tegel-login-page,
+body.tegel-participant-page {
+  --participant-image-ratio: 4 / 3;
+  margin: 0;
+  min-height: 100vh;
+  min-height: 100dvh;
+  background: var(--background-base-secondary, var(--background-elevation-base));
+  color: var(--foreground-text-strong);
+}
+
+body.tegel-login-page {
+  background: var(--background-base-secondary, var(--background-elevation-base));
+}
+
+.tegel-shell {
+  width: min(var(--tds-grid-max), calc(100vw - (var(--tds-spacing-layout-24) * 2)));
+  margin: 0 auto;
+  padding: var(--tds-spacing-layout-24) var(--tds-spacing-layout-24) var(--tds-spacing-layout-32);
+  display: grid;
+  gap: var(--tds-spacing-layout-24);
+  overflow: visible;
+}
+
+.tegel-page-header {
+  display: block;
+  width: 100%;
+}
+
+.tegel-app-header {
+  display: flex;
+  align-items: stretch;
+  width: 100%;
+  position: sticky;
+  top: 0;
+  z-index: 400;
+  background: var(--tds-header-background);
+}
+
+.tegel-app-header > tds-header-title {
+  display: flex;
+  align-items: center;
+  flex: 0 0 auto;
+  min-width: 0;
+  height: var(--tds-header-height);
+  background: var(--tds-header-background);
+  border-right: var(--tds-spacing-element-2) solid var(--tds-header--basic-element-border);
+  overflow: hidden;
+}
+
+.tegel-app-header > tds-header-hamburger {
+  flex: 0 0 auto;
+}
+
+.tegel-app-header > nav {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.tegel-app-header tds-header-item a {
+  display: flex;
+  align-items: center;
+  height: 100%;
+  padding-inline: var(--tds-spacing-element-16);
+  color: inherit;
+  text-decoration: none;
+  box-sizing: border-box;
+}
+
+.tegel-app-header tds-header-item > button {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  width: 100%;
+  height: 100%;
+  padding-inline: var(--tds-spacing-element-16);
+  color: inherit;
+  background: transparent;
+  border: 0;
+  font: inherit;
+  cursor: pointer;
+  box-sizing: border-box;
+}
+
+.tegel-app-header tds-header-item > button:focus-visible,
+.tegel-app-header tds-header-item a:focus-visible {
+  outline: none;
+}
+
+.tegel-page[data-view="board"] .tegel-app-header,
+.tegel-page[data-view="board"] #mobile-topbar-menu {
+  display: none !important;
+}
+
+.tegel-mobile-menu-trigger {
+  display: none;
+}
+
+.tegel-desktop-header-item,
+.tegel-desktop-header-status {
+  display: block;
+}
+
+.tegel-login-header {
+  width: 100%;
+}
+
+.tegel-login-shell {
+  width: min(var(--tds-screen-md), calc(100vw - (var(--tds-spacing-layout-24) * 2)));
+  margin: 0 auto;
+  padding: var(--tds-spacing-layout-32) var(--tds-spacing-layout-24) var(--tds-spacing-layout-40);
+  display: block;
+}
+
+.tegel-page-intro {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--tds-spacing-element-16);
+  padding-top: 0;
+}
+
+.tegel-login-card,
+.tegel-header-card,
+.tegel-section-card,
+.tegel-stat-card,
+.tegel-history-card,
+.tegel-stage-card,
+.tegel-standing-card,
+.tegel-note-card {
+  display: block;
+  width: 100%;
+  overflow: visible;
+}
+
+.tegel-card-copy,
+.tegel-login-content,
+.tegel-form-stack,
+.tegel-stack {
+  display: grid;
+  gap: var(--tds-spacing-element-16);
+  overflow: visible;
+}
+
+.tegel-section {
+  display: grid;
+  width: 100%;
+  min-width: 0;
+  gap: var(--tds-spacing-element-16);
+  padding: var(--tds-spacing-layout-24);
+  box-sizing: border-box;
+  border-radius: var(--tds-border-radius-large);
+  background: var(--background-elevation-layer-01);
+  box-shadow: var(--component-shadow-default);
+}
+
+.tegel-section-header,
+.tegel-section-body {
+  display: grid;
+  gap: var(--tds-spacing-element-16);
+  width: 100%;
+}
+
+.tegel-card-copy {
+  gap: var(--tds-spacing-element-4);
+}
+
+.tegel-card-copy h2,
+.tegel-card-copy h3 {
+  margin: 0;
+}
+
+tds-card.tegel-login-card > [slot="header"],
+tds-card.tegel-login-card > [slot="body"],
+tds-card.tegel-login-card > [slot="actions"],
+tds-card.tegel-section-card > [slot="header"],
+tds-card.tegel-section-card > [slot="body"],
+tds-card.tegel-section-card > [slot="actions"],
+tds-card.tegel-stat-card > [slot="body"],
+tds-card.tegel-history-card > [slot="body"],
+tds-card.tegel-stage-card > [slot="header"],
+tds-card.tegel-stage-card > [slot="body"],
+tds-card.tegel-standing-card > [slot="body"],
+tds-card.tegel-note-card > [slot="body"] {
+  display: block;
+  width: 100%;
+  max-width: none;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+tds-modal > [slot="body"],
+tds-modal > [slot="actions"] {
+  display: contents;
+  width: 100%;
+  max-width: none;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+tds-modal > [slot="actions"] {
+  padding: 0 !important;
+  margin: 0 !important;
+}
+
+/* removed, not needed for modal actions */
+
+.tegel-login-card {
+  width: 100%;
+  max-width: var(--tds-screen-md);
+  margin: 0 auto;
+}
+
+.tegel-login-content,
+.tegel-login-form,
+.tegel-login-actions {
+  display: grid;
+  gap: var(--tds-spacing-element-16);
+}
+
+.is-hidden {
+  display: none !important;
+}
+
+
+.tegel-login-role-row,
+.tegel-action-row,
+.tegel-nav-row,
+.tegel-header-row,
+.tegel-field-row {
+  display: flex;
+  flex-wrap: wrap;
+  column-gap: var(--tds-spacing-element-12);
+  row-gap: var(--tds-spacing-element-12);
+  align-items: center;
+  justify-content: flex-start;
+}
+
+.tegel-login-role-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: stretch;
+}
+
+.tegel-login-role-fieldset {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  display: grid;
+  gap: var(--tds-spacing-element-4);
+}
+
+
+.tegel-login-role-options {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: var(--tds-spacing-element-8);
+  align-items: center;
+  justify-content: flex-start;
+  width: fit-content;
+  max-width: 100%;
+}
+
+.tegel-login-divider {
+  width: 100%;
+  margin-top: var(--tds-spacing-element-2);
+}
+
+.tegel-login-actions {
+  align-items: start;
+}
+
+.tegel-login-actions tds-message {
+  width: 100%;
+}
+
+.tegel-header-row {
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.tegel-standings-header-copy {
+  flex: 1 1 auto;
+}
+
+.tegel-standings-filter-row {
+  width: min(100%, 24rem);
+  margin-inline: 0;
+  margin-bottom: var(--tds-spacing-element-8);
+}
+
+.tegel-header-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--tds-spacing-element-12);
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.tegel-nav-row tds-button,
+.tegel-action-row tds-button,
+.tegel-login-role-row tds-button {
+  flex: 0 0 auto;
+  width: auto;
+}
+
+.tegel-action-row--measurement {
+  margin-top: var(--tds-spacing-element-8);
+}
+
+.tegel-measurement-panel,
+.tegel-measurement-status-section {
+  align-content: start;
+}
+
+.tegel-section-header--measurement {
+  grid-template-columns: minmax(0, 1fr) minmax(18rem, 22rem);
+  align-items: end;
+  column-gap: var(--tds-spacing-layout-24);
+  row-gap: var(--tds-spacing-element-16);
+}
+
+.tegel-measurement-focus {
+  display: grid;
+  gap: var(--tds-spacing-element-4);
+  align-content: start;
+  padding: var(--tds-spacing-element-16);
+  border-radius: var(--tds-border-radius-medium);
+  background: var(--background-elevation-raised);
+}
+
+.tegel-eyebrow {
+  color: var(--foreground-text-subtle);
+  font: var(--tds-paragraph-01);
+}
+
+.tegel-measurement-focus h3 {
+  margin: 0;
+}
+
+.tegel-measurement-focus--inline {
+  padding: 0;
+  background: transparent;
+  border-radius: 0;
+}
+
+.tegel-measurement-focus--inline h3 {
+  font: var(--tds-headline-05);
+  letter-spacing: var(--tds-headline-05-ls);
+  color: var(--foreground-text-subtle);
+}
+
+.tegel-measurement-selection-grid {
+  align-items: end;
+}
+
+.tegel-measurement-note,
+#measurement-participant-search-summary,
+#weigh-panel-copy {
+  margin: 0;
+  color: var(--foreground-text-subtle);
+}
+
+.tegel-summary-grid--measurement > tds-card {
+  min-height: 100%;
+}
+
+.tegel-summary-grid--measurement .tegel-metric-card-content {
+  min-height: 3.5rem;
+  align-content: center;
+}
+
+.tegel-summary-grid--measurement .tegel-metric-card-content strong {
+  color: var(--foreground-text-strong);
+}
+
+.tegel-stack--presenter {
+  gap: var(--tds-spacing-layout-24);
+}
+
+.tegel-fields-grid--presenter {
+  align-items: end;
+}
+
+.tegel-summary-grid--presenter > tds-card {
+  min-height: 100%;
+}
+
+.tegel-summary-grid--presenter .tegel-metric-card-content {
+  min-height: 3.5rem;
+  align-content: center;
+}
+
+.tegel-summary-grid--presenter .tegel-metric-card-content strong {
+  color: var(--foreground-text-strong);
+}
+
+.tegel-presenter-group {
+  display: grid;
+  gap: var(--tds-spacing-element-12);
+}
+
+.tegel-action-row--presenter-mode,
+.tegel-action-row--presenter-controls {
+  align-items: center;
+}
+
+.tegel-presenter-note {
+  margin: 0;
+  color: var(--foreground-text-subtle);
+}
+
+.tegel-fields-grid,
+.tegel-metrics-grid,
+.tegel-stage-grid,
+.tegel-page-grid,
+.tegel-presenter-grid,
+.tegel-summary-grid {
+  display: grid;
+  gap: var(--tds-spacing-element-16);
+  width: 100%;
+  min-width: 0;
+  overflow: visible;
+}
+
+.tegel-fields-grid--two,
+.tegel-metrics-grid,
+.tegel-summary-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.tegel-page-grid--settings,
+.tegel-page-grid--measurement,
+.tegel-page-grid--presenter {
+  grid-template-columns: minmax(0, 1.3fr) minmax(var(--tds-screen-s), 0.9fr);
+  align-items: start;
+}
+
+.tegel-page-grid--presenter {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.tegel-page-grid--operator {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.tegel-page-grid--operator .tegel-stage-section {
+  grid-column: 1 / -1;
+}
+
+.tegel-history-section,
+.tegel-standings-section {
+  grid-column: 1 / -1;
+}
+
+.tegel-field,
+.tegel-field tds-text-field,
+.tegel-field tds-textarea,
+.tegel-field tds-dropdown {
+  width: 100%;
+  display: block;
+}
+
+.tegel-field-inline {
+  min-width: min(100%, var(--tds-screen-s));
+}
+
+.tegel-supporting-text[id],
+.tegel-empty-state,
+.tegel-notice {
+  min-height: var(--tds-spacing-element-20);
+}
+
+.tegel-notice[hidden] {
+  display: none !important;
+}
+
+.tegel-metric-card-content,
+.tegel-note-card-content,
+.tegel-history-item-content,
+.tegel-standing-card-content {
+  display: grid;
+  gap: var(--tds-spacing-element-8);
+}
+
+.tegel-metric-card-content {
+  gap: var(--tds-spacing-element-8);
+}
+
+.tegel-metric-card-content span,
+.tegel-metric-card-content strong {
+  display: block;
+}
+
+
+.tegel-history-list,
+.tegel-standings-list {
+  display: grid;
+  gap: var(--tds-spacing-element-12);
+}
+
+.tegel-table-shell {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  overflow-x: auto;
+}
+
+.tegel-table-shell tds-table {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  min-width: 40rem;
+}
+
+#participant-standings-table {
+  width: 100%;
+  table-layout: fixed;
+}
+
+#participant-standings-table tds-header-cell:first-child {
+  width: 2rem;
+}
+
+#participant-standings-table tds-header-cell:nth-child(2),
+#participant-standings-table tds-body-cell:first-child {
+  width: 1.75rem;
+}
+
+#participant-standings-table tds-header-cell:nth-child(5),
+#participant-standings-table tds-body-cell:nth-child(4) {
+  width: 6.25rem;
+  white-space: nowrap;
+}
+
+#participant-standings-table tds-header-cell {
+  text-align: left;
+}
+
+.participant-standings-expand {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(5.5rem, 7.5rem));
+  justify-content: center;
+  gap: var(--tds-spacing-element-16);
+  padding: 0;
+  width: fit-content;
+  max-width: 100%;
+  margin-inline: auto;
+}
+
+.participant-standings-image-thumb {
+  display: block;
+}
+
+.participant-standings-image-button {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.participant-standings-image-shell {
+  background: var(--background-elevation-layer-02);
+}
+
+.participant-standings-image-shell--thumb {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  border-radius: var(--tds-border-radius-medium);
+}
+
+.participant-standings-image-dialog-shell {
+  width: 100%;
+  max-width: 100%;
+  max-height: 62vh;
+  margin-inline: auto;
+  background: transparent;
+  border-radius: 0;
+  overflow: visible;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.participant-standings-image-title {
+  margin: 0;
+  font: var(--tds-paragraph-02);
+  color: var(--foreground-text-subtle);
+}
+
+.participant-standings-image-dialog-shell .participant-standings-expand-image {
+  position: static;
+  width: auto;
+  height: auto;
+  max-width: 100%;
+  max-height: 62vh;
+  object-fit: contain;
+  transform: none;
+  inset: auto;
+}
+
+.participant-standings-expand-image {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transform: translate(
+      calc(-50% + var(--image-offset-x, 0%)),
+      calc(-50% + var(--image-offset-y, 0%))
+    )
+    scale(var(--image-scale, 1));
+  transform-origin: center center;
+}
+
+.tegel-history-item {
+  display: grid;
+  gap: var(--tds-spacing-element-12);
+}
+
+.tegel-history-item-head,
+.tegel-standing-card-content {
+  display: grid;
+  gap: var(--tds-spacing-element-4);
+}
+
+
+.tegel-history-item-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--tds-spacing-element-12);
+  justify-content: flex-end;
+}
+
+.tegel-stage-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.tegel-stage-preview,
+.tegel-image-preview {
+  position: relative;
+  width: 100%;
+  aspect-ratio: var(--participant-image-ratio);
+  min-height: 0;
+  border: 0;
+  border-radius: var(--tds-border-radius-large);
+  background: var(--background-elevation-layer-02);
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+}
+
+.tegel-image-adjust-layout .tegel-image-preview {
+  border: var(--tds-spacing-element-2) solid var(--foreground-border-defined);
+}
+
+.tegel-stage-actions {
+  display: flex;
+  gap: var(--tds-spacing-element-8);
+  width: 100%;
+  flex-wrap: wrap;
+}
+
+.tegel-stage-actions tds-button {
+  width: auto;
+}
+
+.tegel-stage-actions tds-button::part(button) {
+  min-width: 0;
+}
+
+.tegel-stage-actions .tegel-file-control {
+  width: auto;
+  display: inline-flex;
+}
+
+.tegel-stage-card-body {
+  display: grid;
+  gap: var(--tds-spacing-element-12);
+}
+
+.tegel-stage-footer {
+  display: block;
+  padding-top: var(--tds-spacing-element-8);
+}
+
+.tegel-stage-preview img,
+.tegel-image-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.stage-preview-image,
+.image-adjust-preview-image {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 100%;
+  height: 100%;
+  transform: translate(
+      calc(-50% + var(--image-offset-x, 0%)),
+      calc(-50% + var(--image-offset-y, 0%))
+    )
+    scale(var(--image-scale, 1));
+  transform-origin: center center;
+  object-fit: cover;
+  pointer-events: none;
+}
+
+.tegel-stage-preview .empty-state,
+.tegel-image-preview .empty-state {
+  color: var(--foreground-text-soft);
+  padding: var(--tds-spacing-element-16);
+  text-align: center;
+  pointer-events: none;
+}
+
+.tegel-file-control {
+  display: block;
+  justify-self: start;
+}
+
+.tegel-file-control input {
+  position: absolute;
+  width: var(--tds-spacing-element-2);
+  height: var(--tds-spacing-element-2);
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* stage cards now use Tegel defaults (no custom layout overrides) */
+
+.tegel-stat-row,
+.tegel-standing-card-content {
+  display: grid;
+  grid-template-columns: minmax(var(--tds-spacing-layout-72), auto) minmax(0, 1fr) auto;
+  gap: var(--tds-spacing-element-16);
+  align-items: center;
+}
+
+.tegel-standing-copy {
+  display: grid;
+  gap: var(--tds-spacing-element-2);
+}
+
+.tegel-profile-identity {
+  display: grid;
+  gap: var(--tds-spacing-element-4);
+}
+
+.participant-identity {
+  display: grid;
+  gap: 0;
+}
+
+#participant-page-team {
+  margin: 0;
+}
+
+#participant-profile-view {
+  gap: var(--tds-spacing-element-8);
+}
+
+#participant-profile-view .tegel-section-body {
+  gap: var(--tds-spacing-element-8);
+}
+
+.participant-summary-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.participant-stat-card {
+  min-height: 100%;
+}
+
+.milestone-card__head {
+  display: grid;
+  gap: var(--tds-spacing-element-8);
+}
+
+.stage-status {
+  min-height: var(--tds-spacing-element-20);
+}
+
+.button-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--tds-spacing-element-12);
+  align-items: center;
+}
+
+
+.tegel-modal-body {
+  display: grid;
+  gap: var(--tds-spacing-element-20);
+}
+
+#participant-standings-image-dialog .tegel-modal-body {
+  gap: var(--tds-spacing-element-12);
+}
+
+.tegel-image-adjust-layout {
+  display: grid;
+  gap: var(--tds-spacing-element-20);
+  grid-template-columns: minmax(0, 1.2fr) minmax(calc(var(--tds-spacing-layout-64) * 4), 0.8fr);
+  align-items: start;
+}
+
+.tegel-slider-stack {
+  display: grid;
+  gap: var(--tds-spacing-element-16);
+}
+
+@media (max-width: 780px) {
+  .tegel-image-adjust-layout {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--tds-spacing-element-16);
+  }
+
+  .tegel-slider-stack {
+    gap: var(--tds-spacing-element-12);
+  }
+
+  .tegel-modal-actions {
+    flex-wrap: nowrap;
+    column-gap: var(--tds-spacing-element-16);
+    row-gap: 0;
+  }
+
+  .tegel-modal-actions tds-button {
+    flex: 0 0 auto;
+    width: auto !important;
+    min-width: 0;
+  }
+
+  .tegel-modal-actions tds-button::part(button) {
+    width: auto !important;
+    min-width: 0;
+    padding-inline: var(--tds-spacing-element-16);
+  }
+
+  .tegel-stage-actions {
+    flex-wrap: nowrap;
+  }
+
+  .tegel-stage-actions tds-button::part(button) {
+    min-width: 0;
+    padding-inline: var(--tds-spacing-element-12);
+  }
+
+
+  .tegel-image-adjust-layout .tegel-stage-preview,
+  .tegel-image-adjust-layout .tegel-image-preview {
+    max-width: 100%;
+  }
+}
+
+.tegel-modal-actions {
+  display: flex;
+  flex-wrap: wrap;
+  column-gap: var(--tds-spacing-element-12);
+  row-gap: var(--tds-spacing-element-12);
+  justify-content: flex-start;
+  align-items: center;
+  padding-top: 0;
+  margin: 0;
+}
+
+
+tds-card.tegel-login-card,
+tds-card.tegel-section-card,
+tds-card.tegel-stat-card,
+tds-card.tegel-history-card,
+tds-card.tegel-stage-card,
+tds-card.tegel-standing-card,
+tds-card.tegel-note-card {
+  overflow: visible;
+}
+
+tds-card.tegel-stage-card {
+  --tds-card-header-color: var(--foreground-text-subtle);
+}
+
+tds-card.tegel-stage-card::part(header),
+tds-card.tegel-stage-card::part(title),
+tds-card.tegel-stage-card::part(headline) {
+  color: var(--foreground-text-subtle);
+}
+
+
+
+.tegel-modal-actions tds-button {
+  flex: 0 0 auto;
+  width: auto;
+}
+
+tds-text-field,
+tds-textarea,
+tds-dropdown,
+tds-slider,
+tds-message,
+tds-tag {
+  width: 100%;
+}
+
+tds-tag.tegel-status-tag {
+  width: auto;
+}
+
+tds-tag.tegel-desktop-header-status {
+  width: auto;
+  align-self: center;
+}
+
+@media (min-width: 901px) {
+  #mobile-topbar-menu,
+  #participant-mobile-menu {
+    display: none;
+  }
+}
+
+.tegel-nav-row tds-button[data-nav-view].is-active::part(button),
+.tegel-action-row tds-button.is-active::part(button),
+.tegel-login-role-row tds-button.is-active::part(button) {
+  /* keep marker class for JS state without adding visual styling here */
+}
+
+@media (max-width: 1100px) {
+  .tegel-page-grid--settings,
+  .tegel-page-grid--measurement,
+  .tegel-page-grid--presenter {
+    grid-template-columns: 1fr;
+  }
+
+  .tegel-section-header--measurement {
+    grid-template-columns: 1fr;
+  }
+
+  .tegel-stage-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 720px) {
+  .tegel-shell,
+  .tegel-login-shell {
+    width: min(100%, calc(100vw - (var(--tds-spacing-element-8) * 2)));
+    padding: var(--tds-spacing-element-8) var(--tds-spacing-element-8) var(--tds-spacing-element-16);
+    gap: var(--tds-spacing-element-16);
+  }
+
+  .tegel-shell {
+    padding-inline: var(--tds-spacing-element-8);
+  }
+
+  .tegel-table-shell {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+    overflow-x: auto;
+  }
+
+  .tegel-standings-list .tegel-table-shell {
+      margin-inline: calc(var(--tds-spacing-element-12) * -1);
+      width: calc(100% + (var(--tds-spacing-element-12) * 2));
+      max-width: calc(100% + (var(--tds-spacing-element-12) * 2));
+    }
+
+  .tegel-standings-filter-row {
+    width: 100%;
+    margin-inline: 0;
+  }
+
+  .tegel-table-shell tds-table,
+  #participant-standings-table {
+    width: 100%;
+    min-width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+
+  .tegel-section {
+    padding: var(--tds-spacing-element-12);
+  }
+
+  .tegel-page-intro {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .tegel-fields-grid--two,
+  .tegel-metrics-grid,
+  .tegel-summary-grid,
+  .tegel-image-adjust-layout,
+  .tegel-stat-row {
+    grid-template-columns: 1fr;
+  }
+
+  .tegel-header-row,
+  .tegel-header-meta,
+  .tegel-nav-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .tegel-action-row {
+    flex-wrap: wrap;
+  }
+
+  .tegel-action-row tds-button {
+    width: auto !important;
+    flex: 0 0 auto;
+    max-width: 100%;
+    min-width: 0;
+  }
+
+  .tegel-action-row tds-button::part(button) {
+    max-width: 100%;
+    white-space: nowrap;
+  }
+
+
+  .tegel-nav-row tds-button,
+  .tegel-login-actions tds-button {
+    width: 100%;
+  }
+
+  .tegel-login-actions tds-button {
+    width: 100%;
+  }
+
+  .button-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .tegel-stage-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .participant-standings-expand {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: var(--tds-spacing-element-12);
+    padding: 0;
+    width: 100%;
+    max-width: 100%;
+    margin-inline: 0;
+  }
+
+  .participant-standings-image-dialog-shell {
+    max-height: 50vh;
+  }
+
+  .participant-standings-image-dialog-shell .participant-standings-expand-image {
+    max-height: 50vh;
+  }
+
+  .tegel-table-shell tds-table,
+  #participant-standings-table {
+    min-width: 0;
+    font-size: 0.875rem;
+    --tds-spacing-element-16: var(--tds-spacing-element-8);
+  }
+
+  #participant-standings-table tds-header-cell,
+  #participant-standings-table tds-body-cell {
+    padding-left: 6px;
+    padding-right: 6px;
+  }
+
+  #participant-standings-table tds-header-cell:first-child {
+    width: 1.5rem;
+  }
+
+  #participant-standings-table tds-header-cell:nth-child(2),
+  #participant-standings-table tds-body-cell:first-child {
+    width: 0.85rem;
+  }
+
+  #participant-standings-table tds-header-cell:nth-child(5),
+  #participant-standings-table tds-body-cell:nth-child(4) {
+    width: 4.35rem;
+    white-space: nowrap;
+  }
+
+  .tegel-stage-preview,
+  .tegel-image-preview {
+    min-height: 0;
+  }
+
+  .tegel-login-role-options {
+    display: inline-flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-start;
+    gap: var(--tds-spacing-element-8);
+    flex-wrap: wrap;
+    width: fit-content;
+    max-width: 100%;
+  }
+}
+
+@media (max-width: 900px) {
+  .tegel-mobile-menu-trigger {
+    display: block;
+  }
+
+  .tegel-desktop-header-item,
+  .tegel-desktop-header-status {
+    display: none;
+  }
+}

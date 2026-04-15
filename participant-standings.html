@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="sv">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Alla deltagare | Odlingskampen</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@scania/tegel@1.50.0/dist/tegel/tegel.css" />
+    <link rel="stylesheet" href="tegel-ui.css?v=20260415-participant-image-modal-06" />
+  </head>
+  <body class="scania tds-mode-light tegel-participant-page">
+    <tds-header class="tegel-app-header">
+      <tds-header-hamburger
+        id="participant-menu-toggle-btn"
+        class="tegel-mobile-menu-trigger"
+        slot="hamburger"
+        tds-aria-label="&Ouml;ppna meny"
+      ></tds-header-hamburger>
+      <tds-header-title slot="title">Odlingskampen</tds-header-title>
+      <tds-header-item class="tegel-desktop-header-item">
+        <button type="button" id="participant-view-profile-btn">Min sida</button>
+      </tds-header-item>
+      <tds-header-item class="tegel-desktop-header-item" selected>
+        <button type="button" id="participant-view-standings-btn">Alla deltagare</button>
+      </tds-header-item>
+      <tds-header-item class="tegel-desktop-header-item">
+        <button type="button" id="participant-rules-open-btn">Regler</button>
+      </tds-header-item>
+      <tds-header-item slot="end" class="tegel-desktop-header-item">
+        <button type="button" id="participant-password-open-btn">Byt l&ouml;senord</button>
+      </tds-header-item>
+      <tds-header-item slot="end" class="tegel-desktop-header-item">
+        <button type="button" id="participant-logout-btn">Logga ut</button>
+      </tds-header-item>
+    </tds-header>
+
+    <tds-side-menu id="participant-mobile-menu">
+      <tds-side-menu-overlay slot="overlay"></tds-side-menu-overlay>
+      <tds-side-menu-close-button slot="close-button"></tds-side-menu-close-button>
+      <tds-side-menu-item>
+        <button type="button" id="participant-view-profile-btn-mobile">Min sida</button>
+      </tds-side-menu-item>
+      <tds-side-menu-item selected>
+        <button type="button" id="participant-view-standings-btn-mobile">Alla deltagare</button>
+      </tds-side-menu-item>
+      <tds-side-menu-item>
+        <button type="button" id="participant-rules-open-btn-mobile">Regler</button>
+      </tds-side-menu-item>
+      <tds-side-menu-item>
+        <button type="button" id="participant-password-open-btn-mobile">Byt l&ouml;senord</button>
+      </tds-side-menu-item>
+      <tds-side-menu-item slot="end">
+        <button type="button" id="participant-logout-btn-mobile">Logga ut</button>
+      </tds-side-menu-item>
+    </tds-side-menu>
+
+    <div class="tegel-shell" id="participant-shell">
+      <tds-message id="participant-notice" variant="information" minimal no-icon hidden></tds-message>
+
+      <main class="tegel-page-grid">
+        <section class="tegel-standings-section tegel-section">
+          <div class="tegel-section-header tegel-header-row">
+            <div class="tegel-card-copy tegel-standings-header-copy">
+              <h3>Alla deltagare</h3>
+            </div>
+          </div>
+          <div class="tegel-section-body tegel-standings-list">
+            <p id="participant-competition-copy"></p>
+            <div class="tegel-field-inline tegel-standings-filter-row">
+              <tds-dropdown
+                id="participant-competition-select"
+                label="Visa t&auml;vling"
+                label-position="outside"
+                placeholder="V&auml;lj t&auml;vling"
+              ></tds-dropdown>
+            </div>
+            <div class="tegel-table-shell">
+              <tds-table id="participant-standings-table" compact-design no-min-width>
+                <tds-table-header>
+                  <tds-header-cell></tds-header-cell>
+                  <tds-header-cell>Pl.</tds-header-cell>
+                  <tds-header-cell>Namn</tds-header-cell>
+                  <tds-header-cell>Avdelning</tds-header-cell>
+                  <tds-header-cell>Vikt</tds-header-cell>
+                </tds-table-header>
+                <tds-table-body id="participant-standings-table-body">
+                  <tds-table-body-row>
+                    <tds-body-cell>Inga resultat att visa an.</tds-body-cell>
+                    <tds-body-cell></tds-body-cell>
+                    <tds-body-cell></tds-body-cell>
+                    <tds-body-cell></tds-body-cell>
+                  </tds-table-body-row>
+                </tds-table-body>
+              </tds-table>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <tds-modal id="participant-password-dialog" header="Byt ditt l&ouml;senord" size="sm" closable>
+      <div slot="body" class="tegel-stack">
+        <p class="tegel-modal-copy">Anv&auml;nd ditt nuvarande l&ouml;senord och v&auml;lj sedan ett nytt.</p>
+        <form id="participant-password-form" class="tegel-modal-body">
+          <tds-text-field
+            id="participant-current-password"
+            type="password"
+            label="Nuvarande l&ouml;senord"
+            label-position="outside"
+            autocomplete="current-password"
+            required
+          ></tds-text-field>
+          <tds-text-field
+            id="participant-new-password"
+            type="password"
+            label="Nytt l&ouml;senord"
+            label-position="outside"
+            autocomplete="new-password"
+            required
+          ></tds-text-field>
+          <tds-text-field
+            id="participant-confirm-password"
+            type="password"
+            label="Bekr&auml;fta nytt l&ouml;senord"
+            label-position="outside"
+            autocomplete="new-password"
+            required
+          ></tds-text-field>
+          <div class="tegel-modal-actions button-row">
+            <tds-button id="participant-password-cancel-btn" variant="secondary" text="Avbryt" type="button"></tds-button>
+            <tds-button id="participant-password-save-btn" text="Byt l&ouml;senord" type="submit"></tds-button>
+          </div>
+        </form>
+      </div>
+    </tds-modal>
+
+    <tds-modal id="participant-rules-dialog" header="Regler" size="md" closable>
+      <div slot="body" class="tegel-modal-body">
+        <h4 id="participant-rules-title">T&auml;vlingsregler</h4>
+        <div class="participant-rules-copy" id="participant-rules-copy">
+          Inga regler &auml;r inlagda f&ouml;r den h&auml;r t&auml;vlingen &auml;nnu.
+        </div>
+      </div>
+      <div slot="actions" class="tegel-modal-actions">
+        <tds-button id="participant-rules-close-btn" text="St&auml;ng" type="button"></tds-button>
+      </div>
+    </tds-modal>
+
+    <tds-modal id="participant-standings-image-dialog" header="Bild" size="md" closable>
+      <div slot="body" class="tegel-modal-body">
+        <p id="participant-standings-image-title" class="participant-standings-image-title">Bild</p>
+        <div class="tegel-stage-preview participant-standings-image-dialog-shell">
+          <img id="participant-standings-image-preview" class="participant-standings-expand-image" hidden />
+          <div id="participant-standings-image-empty" class="empty-state" hidden>Ingen bild</div>
+        </div>
+      </div>
+      <div slot="actions" class="tegel-modal-actions">
+        <tds-button id="participant-standings-image-close-btn" text="St&auml;ng" type="button"></tds-button>
+      </div>
+    </tds-modal>
+
+    <script type="module">
+      import { defineCustomElements } from "https://cdn.jsdelivr.net/npm/@scania/tegel@1.50.0/loader/index.es2017.js";
+
+      defineCustomElements(window);
+    </script>
+    <script src="participant.js?v=20260415-participant-image-modal-05"></script>
+  </body>
+</html>

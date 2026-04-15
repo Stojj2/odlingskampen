@@ -5,6 +5,7 @@ const DEFAULT_PARTICIPANT_PASSWORD = "Odlingskampen";
 const VALID_VIEWS = new Set(["settings", "operator", "measurement", "presenter", "board"]);
 const CURRENT_VIEW = getCurrentView();
 const DISPLAY_VIEW = CURRENT_VIEW === "board";
+const CONTROL_EVENTS = ["input", "change", "tdsInput", "tdsChange"];
 const POLL_INTERVAL_MS = DISPLAY_VIEW ? 1500 : 3500;
 const SCOREBOARD_MOVE_DURATION_MS = 1800;
 const SCOREBOARD_ENTER_DURATION_MS = 900;
@@ -16,8 +17,11 @@ const SCOREBOARD_SEQUENCE_SCROLL_MS = 1050;
 const SCOREBOARD_SEQUENCE_LAND_MS = 820;
 const SCOREBOARD_SEQUENCE_FOCUS_MS = 3000;
 const SCOREBOARD_SEQUENCE_RETURN_MS = 1100;
+const BOARD_INCOMING_STATE_HOLD_MS = 2600;
+const WEIGH_IN_SHOWCASE_STALE_INTRO_MS = 60000;
 const WEIGH_IN_SHOWCASE_STALE_COUNTUP_MS = 45000;
 const SPOTLIGHT_REFRESH_MS = 1000;
+const USE_CUSTOM_DROPDOWNS = false;
 const WEIGH_IN_SHOWCASE_PHASES = {
   IDLE: "idle",
   INTRO: "intro",
@@ -32,20 +36,20 @@ const PARTICIPANT_IMAGE_STAGES = [
 
 const PAGE_META = {
   settings: {
-    title: "Admin",
-    subtitle: "",
+    title: "Inställningar",
+    subtitle: "Hantera tävlingens ramverk, historik och aktiva läge.",
   },
   operator: {
-    title: "Admin",
-    subtitle: "",
+    title: "Deltagare",
+    subtitle: "Registrera deltagare, lösenord och bildsteg.",
   },
   measurement: {
-    title: "Admin",
-    subtitle: "",
+    title: "Mätning",
+    subtitle: "Välj deltagare och registrera ny vikt.",
   },
   presenter: {
-    title: "Admin",
-    subtitle: "",
+    title: "Presentation",
+    subtitle: "Styr publikskärmen och spotlightläget.",
   },
 };
 
@@ -76,17 +80,24 @@ const runtime = {
   boardSequenceArmed: false,
   boardSequenceRunId: 0,
   boardListOffsetY: 0,
+  boardListTopLocked: false,
   boardListAnimation: null,
   boardCardAnimation: null,
   boardWeightFrameHandle: 0,
+  boardSequenceInProgress: false,
   lastBoardShowcaseSignature: "",
   lastBoardSequenceGallerySignature: "",
   lastBoardSequenceToken: "",
   completedBoardShowcaseSignature: "",
   lastConsumedBoardShowcaseToken: "",
+  boardIncomingStateHoldUntil: 0,
+  boardDeferredState: null,
+  boardDeferredApplyHandle: null,
   imageAdjustSession: null,
   participantSearchQuery: "",
   measurementSearchQuery: "",
+  measurementUnlockedParticipantId: "",
+  dropdownStabilizerHandle: null,
 };
 
 let state = createDefaultState();
@@ -106,6 +117,9 @@ document.addEventListener("DOMContentLoaded", () => {
   });
   startPolling();
   startSpotlightTicker();
+  if (USE_CUSTOM_DROPDOWNS) {
+    startDropdownStabilizer();
+  }
 });
 
 function getCurrentView() {
@@ -116,14 +130,13 @@ function getCurrentView() {
 function cacheDom() {
   dom.workbenchShell = document.getElementById("workbench-shell");
   dom.displayShell = document.getElementById("display-shell");
-  dom.pageTitle = document.getElementById("page-title");
-  dom.topbarCurrentView = document.getElementById("topbar-current-view");
-  dom.pageSubtitle = document.getElementById("page-subtitle");
   dom.navLinks = Array.from(document.querySelectorAll("[data-nav-view]"));
   dom.menuToggleButton = document.getElementById("menu-toggle-btn");
   dom.topbarMenu = document.getElementById("mobile-topbar-menu");
+  dom.topbarMenuOverlay = dom.topbarMenu?.querySelector('tds-side-menu-overlay[slot="overlay"]') || null;
+  dom.topbarMenuCloseButton = dom.topbarMenu?.querySelector('tds-side-menu-close-button[slot="close-button"]') || null;
   dom.syncStatus = document.getElementById("sync-status");
-  dom.logoutButton = document.getElementById("logout-btn");
+  dom.logoutButtons = [document.getElementById("logout-btn"), document.getElementById("logout-btn-mobile")].filter(Boolean);
   dom.globalNotice = document.getElementById("global-notice");
   dom.viewPages = new Map([
     ["settings", document.getElementById("settings-view")],
@@ -164,9 +177,13 @@ function cacheDom() {
   dom.participantCreateForm = document.getElementById("participant-create-form");
   dom.participantCreateName = document.getElementById("participant-create-name");
   dom.participantCreateTeam = document.getElementById("participant-create-team");
+  dom.participantCreateSaveButton = document.getElementById("participant-create-save-btn");
   dom.participantCreateCancelButton = document.getElementById("participant-create-cancel-btn");
   dom.stageInputs = new Map(
     Array.from(document.querySelectorAll("[data-stage-input]")).map((element) => [element.dataset.stageInput, element]),
+  );
+  dom.stageUploadButtons = new Map(
+    Array.from(document.querySelectorAll("[data-stage-upload]")).map((element) => [element.dataset.stageUpload, element]),
   );
   dom.stageRemoveButtons = new Map(
     Array.from(document.querySelectorAll("[data-stage-remove]")).map((element) => [element.dataset.stageRemove, element]),
@@ -242,7 +259,6 @@ function cacheDom() {
   dom.imageAdjustTitle = document.getElementById("image-adjust-title");
   dom.imageAdjustCopy = document.getElementById("image-adjust-copy");
   dom.imageAdjustPreview = document.getElementById("image-adjust-preview");
-  dom.imageAdjustResultPreview = document.getElementById("image-adjust-result-preview");
   dom.imageAdjustEmpty = document.getElementById("image-adjust-empty");
   dom.imageAdjustScale = document.getElementById("image-adjust-scale");
   dom.imageAdjustOffsetX = document.getElementById("image-adjust-offset-x");
@@ -264,46 +280,67 @@ function configureLayout() {
     const isActive = link.dataset.navView === CURRENT_VIEW;
     link.classList.toggle("is-active", isActive);
     link.setAttribute("aria-current", isActive ? "page" : "false");
+    const container = link.closest("tds-header-item, tds-side-menu-item");
+    if (container) {
+      if (isActive) {
+        container.setAttribute("selected", "");
+      } else {
+        container.removeAttribute("selected");
+      }
+    }
   });
 
-  if (dom.topbarCurrentView instanceof HTMLElement) {
-    dom.topbarCurrentView.textContent = VIEW_LABELS[CURRENT_VIEW] || "";
-  }
-
-  if (!DISPLAY_VIEW) {
-    const meta = PAGE_META[CURRENT_VIEW] || PAGE_META.operator;
-    dom.pageTitle.textContent = meta.title;
-    dom.pageSubtitle.textContent = meta.subtitle;
-    dom.pageSubtitle.hidden = !meta.subtitle;
+  if (dom.workbenchShell instanceof HTMLElement) {
+    dom.workbenchShell.dataset.currentView = CURRENT_VIEW;
   }
 }
 
 function setMobileMenuOpen(isOpen) {
-  if (!(dom.menuToggleButton instanceof HTMLButtonElement) || !(dom.topbarMenu instanceof HTMLElement)) {
+  if (!dom.menuToggleButton || !dom.topbarMenu) {
     return;
   }
 
   dom.menuToggleButton.setAttribute("aria-expanded", String(isOpen));
-  dom.topbarMenu.classList.toggle("is-open", isOpen);
+  dom.topbarMenu.open = Boolean(isOpen);
+  if (isOpen) {
+    dom.topbarMenu.setAttribute("open", "");
+  } else {
+    dom.topbarMenu.removeAttribute("open");
+  }
 }
 
 function bindEvents() {
-  if (dom.logoutButton) {
-    dom.logoutButton.addEventListener("click", async () => {
+  const settingsSaveButton = document.getElementById("settings-save-btn");
+
+  dom.logoutButtons.forEach((button) => {
+    button.addEventListener("click", async () => {
       await logoutSession();
       redirectToLogin();
     });
-  }
+  });
 
-  if (dom.menuToggleButton instanceof HTMLButtonElement) {
+  if (dom.menuToggleButton) {
     dom.menuToggleButton.addEventListener("click", () => {
       const isOpen = dom.menuToggleButton.getAttribute("aria-expanded") === "true";
       setMobileMenuOpen(!isOpen);
     });
   }
 
+  [dom.topbarMenuOverlay, dom.topbarMenuCloseButton].forEach((element) => {
+    element?.addEventListener("click", () => {
+      setMobileMenuOpen(false);
+    });
+  });
+
+  dom.topbarMenu?.addEventListener("click", (event) => {
+    const target = event.target;
+    if (target instanceof Element && target.closest("tds-side-menu-close-button, tds-side-menu-overlay")) {
+      setMobileMenuOpen(false);
+    }
+  });
+
   document.addEventListener("click", (event) => {
-    if (!(dom.menuToggleButton instanceof HTMLButtonElement) || !(dom.topbarMenu instanceof HTMLElement)) {
+    if (!dom.menuToggleButton || !dom.topbarMenu) {
       return;
     }
 
@@ -319,17 +356,150 @@ function bindEvents() {
     setMobileMenuOpen(false);
   });
 
+  if (USE_CUSTOM_DROPDOWNS) {
+    document.addEventListener("click", (event) => {
+      const path = typeof event.composedPath === "function" ? event.composedPath() : [];
+      const option = path.find((node) => node instanceof Element && node.tagName === "TDS-DROPDOWN-OPTION");
+      if (!option) {
+        return;
+      }
+
+      const dropdown =
+        option?.closest?.("tds-dropdown") ||
+        path.find((node) => node instanceof Element && node.tagName === "TDS-DROPDOWN");
+
+      if (!dropdown) {
+        return;
+      }
+
+      window.setTimeout(() => {
+        closeDropdownElement(dropdown);
+      }, 0);
+    });
+
+    document.addEventListener("click", (event) => {
+      const path = typeof event.composedPath === "function" ? event.composedPath() : [];
+      const clickedInsideDropdown = path.some((node) => {
+        if (!(node instanceof Element)) {
+          return false;
+        }
+        if (node.tagName === "TDS-DROPDOWN" || node.tagName === "TDS-DROPDOWN-OPTION") {
+          return true;
+        }
+        return node.classList?.contains("dropdown-list");
+      });
+      if (!clickedInsideDropdown) {
+        [dom.participantSelect, dom.measurementParticipantSelect, dom.presentParticipant, dom.presentInterval].forEach((dropdown) =>
+          closeDropdownElement(dropdown),
+        );
+      }
+    });
+  }
+
   document.addEventListener("keydown", (event) => {
     if (event.key === "Escape") {
       setMobileMenuOpen(false);
     }
   });
 
+  if (USE_CUSTOM_DROPDOWNS) {
+    [dom.participantSelect, dom.measurementParticipantSelect, dom.presentParticipant, dom.presentInterval].forEach((dropdown) => {
+      bindDropdownPositioning(dropdown);
+    });
+
+    window.addEventListener(
+      "resize",
+      () => {
+        [dom.participantSelect, dom.measurementParticipantSelect, dom.presentParticipant, dom.presentInterval].forEach((dropdown) => {
+          positionDropdownList(dropdown);
+        });
+      },
+      { passive: true },
+    );
+
+    window.addEventListener(
+      "scroll",
+      () => {
+        [dom.participantSelect, dom.measurementParticipantSelect, dom.presentParticipant, dom.presentInterval].forEach((dropdown) => {
+          positionDropdownList(dropdown);
+        });
+      },
+      { passive: true, capture: true },
+    );
+  }
+
+  if (USE_CUSTOM_DROPDOWNS) {
+    [dom.participantSelect, dom.measurementParticipantSelect, dom.presentParticipant, dom.presentInterval].forEach((dropdown) => {
+      dropdown?.addEventListener("keydown", (event) => {
+        if (event.key === "Enter" || event.key === "Escape") {
+          window.setTimeout(() => closeDropdownElement(dropdown), 0);
+        }
+      });
+    });
+  }
+
   dom.navLinks.forEach((link) => {
     link.addEventListener("click", () => {
+      const view = sanitizeId(link.dataset.navView);
       setMobileMenuOpen(false);
+      if (view && view !== CURRENT_VIEW) {
+        window.location.assign(buildViewUrl(view));
+      }
     });
   });
+
+  if (settingsSaveButton) {
+    settingsSaveButton.addEventListener("click", () => {
+      dom.eventForm?.requestSubmit();
+    });
+  }
+
+  if (dom.participantSaveButton) {
+    dom.participantSaveButton.addEventListener("click", () => {
+      dom.participantForm?.requestSubmit();
+    });
+  }
+
+  const handleWeighSubmit = async () => {
+    const selectedParticipant = getSelectedParticipant();
+    const participantId = selectedParticipant ? selectedParticipant.id : "";
+    const weightKg = normalizeWeightInput(getControlValue(dom.weighWeight));
+    const weighInShowcase = getActiveWeighInShowcase(state.presentation);
+    const isUnlockedForSelected =
+      participantId &&
+      (runtime.measurementUnlockedParticipantId === participantId ||
+        (weighInShowcase.phase === WEIGH_IN_SHOWCASE_PHASES.INTRO && weighInShowcase.participantId === participantId));
+
+    if (!participantId || !selectedParticipant) {
+      notify("Välj en deltagare innan du registrerar vikt.");
+      return;
+    }
+
+    if (!isUnlockedForSelected) {
+      notify("Tryck Starta för att visa deltagaren på presentationsskärmen innan du uppdaterar vikten.");
+      return;
+    }
+
+    if (weightKg === null) {
+      notify("Skriv in en giltig vikt i kilo.");
+      return;
+    }
+
+    const existingWeighIn = getParticipantWeighIn(participantId);
+    await persistState(commitParticipantWeighInShowcase(state, participantId, weightKg));
+    runtime.measurementUnlockedParticipantId = "";
+    notify(
+      existingWeighIn
+        ? `Vikten för ${selectedParticipant.name} är uppdaterad till ${formatWeight(weightKg)}.`
+        : `${selectedParticipant.name} registrerades på ${formatWeight(weightKg)}.`,
+    );
+  };
+
+  if (dom.weighSaveButton) {
+    dom.weighSaveButton.addEventListener("click", async () => {
+      await handleWeighSubmit();
+    });
+  }
 
   window.addEventListener("resize", () => {
     if (window.innerWidth > 900) {
@@ -438,28 +608,44 @@ function bindEvents() {
     }
   });
 
-  dom.participantSelect.addEventListener("change", () => {
+  bindControlEvents(dom.participantSelect, () => {
     runtime.selectedParticipantId = sanitizeId(dom.participantSelect.value) || NEW_PARTICIPANT_VALUE;
     dom.participantPassword.value = "";
     render();
+    window.setTimeout(() => closeDropdownElement(dom.participantSelect), 0);
   });
 
-  dom.participantSearch.addEventListener("input", () => {
+  bindControlEvents(dom.participantSearch, () => {
     runtime.participantSearchQuery = sanitizeText(dom.participantSearch.value, 80);
     render();
   });
 
-  dom.measurementParticipantSearch.addEventListener("input", () => {
+  bindControlEvents(dom.measurementParticipantSearch, () => {
     runtime.measurementSearchQuery = sanitizeText(dom.measurementParticipantSearch.value, 80);
     render();
   });
 
-  dom.measurementParticipantSelect.addEventListener("change", () => {
-    runtime.selectedParticipantId = sanitizeId(dom.measurementParticipantSelect.value) || NEW_PARTICIPANT_VALUE;
-    render();
+  bindControlEvents(dom.measurementParticipantSelect, async () => {
+    const nextParticipantId = sanitizeId(dom.measurementParticipantSelect.value) || NEW_PARTICIPANT_VALUE;
+    const activeShowcase = getActiveWeighInShowcase(state.presentation);
+    const shouldClearActiveIntro =
+      activeShowcase.phase === WEIGH_IN_SHOWCASE_PHASES.INTRO &&
+      Boolean(activeShowcase.participantId) &&
+      activeShowcase.participantId !== nextParticipantId;
+
+    runtime.selectedParticipantId = nextParticipantId;
+    runtime.measurementUnlockedParticipantId = "";
+
+    if (shouldClearActiveIntro) {
+      await persistState(clearParticipantWeighInShowcase(state));
+    } else {
+      render();
+    }
+
+    window.setTimeout(() => closeDropdownElement(dom.measurementParticipantSelect), 0);
   });
 
-  dom.participantName.addEventListener("input", () => {
+  bindControlEvents(dom.participantName, () => {
     renderParticipantLoginFields();
   });
 
@@ -467,12 +653,20 @@ function bindEvents() {
     openParticipantCreateDialog();
   });
 
+  dom.participantCreateSaveButton.addEventListener("click", () => {
+    if (typeof dom.participantCreateForm.requestSubmit === "function") {
+      dom.participantCreateForm.requestSubmit();
+    } else {
+      dom.participantCreateForm.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+    }
+  });
+
   dom.participantCreateCancelButton.addEventListener("click", () => {
     closeParticipantCreateDialog();
   });
 
-  dom.participantCreateDialog.addEventListener("close", () => {
-    dom.participantCreateForm.reset();
+  bindModalCloseEvents(dom.participantCreateDialog, () => {
+    dom.participantCreateForm?.reset();
   });
 
   dom.participantCreateForm.addEventListener("submit", async (event) => {
@@ -495,11 +689,11 @@ function bindEvents() {
 
     const participantId = createId("p");
     runtime.selectedParticipantId = participantId;
+    closeParticipantCreateDialog();
     await persistState({
       ...state,
       participants: [...state.participants, { id: participantId, name, team, images: createEmptyParticipantImages() }],
     });
-    closeParticipantCreateDialog();
     try {
       await persistParticipantPassword(participantId, DEFAULT_PARTICIPANT_PASSWORD);
       notify(`Ny deltagare är sparad. Standardlösenord: ${DEFAULT_PARTICIPANT_PASSWORD}.`);
@@ -603,6 +797,13 @@ function bindEvents() {
     });
   });
 
+  dom.stageUploadButtons.forEach((button, stageKey) => {
+    button.addEventListener("click", () => {
+      const input = dom.stageInputs.get(stageKey);
+      input?.click();
+    });
+  });
+
   dom.stageRemoveButtons.forEach((button, stageKey) => {
     button.addEventListener("click", async () => {
       const participant = getSelectedParticipant();
@@ -647,6 +848,8 @@ function bindEvents() {
       return;
     }
 
+    runtime.measurementUnlockedParticipantId = selectedParticipant.id;
+    closeDropdownElement(dom.measurementParticipantSelect);
     const nextState = startParticipantWeighInShowcase(state, selectedParticipant.id);
     await persistState(nextState);
     notify(`${selectedParticipant.name} visas nu på presentationsskärmen. Mata in vikten när ni är redo.`);
@@ -656,37 +859,7 @@ function bindEvents() {
 
   dom.weighInForm.addEventListener("submit", async (event) => {
     event.preventDefault();
-
-    const selectedParticipant = getSelectedParticipant();
-    const participantId = selectedParticipant ? selectedParticipant.id : "";
-    const weightKg = normalizeWeightInput(dom.weighWeight.value);
-    const weighInShowcase = getActiveWeighInShowcase(state.presentation);
-
-    if (!participantId || !selectedParticipant) {
-      notify("Välj en deltagare innan du registrerar vikt.");
-      return;
-    }
-
-    if (
-      weighInShowcase.phase !== WEIGH_IN_SHOWCASE_PHASES.INTRO ||
-      weighInShowcase.participantId !== participantId
-    ) {
-      notify("Tryck Starta för att visa deltagaren på presentationsskärmen innan du uppdaterar vikten.");
-      return;
-    }
-
-    if (weightKg === null) {
-      notify("Skriv in en giltig vikt i kilo.");
-      return;
-    }
-
-    const existingWeighIn = getParticipantWeighIn(participantId);
-    await persistState(commitParticipantWeighInShowcase(state, participantId, weightKg));
-    notify(
-      existingWeighIn
-        ? `Vikten för ${selectedParticipant.name} är uppdaterad till ${formatWeight(weightKg)}.`
-        : `${selectedParticipant.name} registrerades på ${formatWeight(weightKg)}.`,
-    );
+    await handleWeighSubmit();
   });
 
   dom.weighDeleteButton.addEventListener("click", async () => {
@@ -707,6 +880,7 @@ function bindEvents() {
     }
 
     await persistState(deleteParticipantWeighIn(state, selectedParticipant.id));
+    runtime.measurementUnlockedParticipantId = "";
     notify(`Vikten för ${selectedParticipant.name} är borttagen.`);
   });
 
@@ -718,7 +892,7 @@ function bindEvents() {
     await setPresentationMode("spotlight", getPreferredSpotlightParticipantId());
   });
 
-  dom.presentParticipant.addEventListener("change", async () => {
+  bindControlEvents(dom.presentParticipant, async () => {
     const participantId = sanitizeId(dom.presentParticipant.value);
     if (!participantId) {
       return;
@@ -733,9 +907,10 @@ function bindEvents() {
         spotlightAnchorAt: utcNowIso(),
       },
     });
+    window.setTimeout(() => closeDropdownElement(dom.presentParticipant), 0);
   });
 
-  dom.presentInterval.addEventListener("change", async () => {
+  bindControlEvents(dom.presentInterval, async () => {
     await persistState({
       ...state,
       presentation: {
@@ -744,6 +919,7 @@ function bindEvents() {
         spotlightAnchorAt: utcNowIso(),
       },
     });
+    window.setTimeout(() => closeDropdownElement(dom.presentInterval), 0);
   });
 
   dom.presentPrevButton.addEventListener("click", async () => {
@@ -773,37 +949,23 @@ function bindEvents() {
     }
   });
 
-  if (dom.imageAdjustScale instanceof HTMLInputElement) {
-    dom.imageAdjustScale.addEventListener("input", syncImageAdjustPreviewFromControls);
-  }
+  bindControlEvents(dom.imageAdjustScale, syncImageAdjustPreviewFromControls);
+  bindControlEvents(dom.imageAdjustOffsetX, syncImageAdjustPreviewFromControls);
+  bindControlEvents(dom.imageAdjustOffsetY, syncImageAdjustPreviewFromControls);
 
-  if (dom.imageAdjustOffsetX instanceof HTMLInputElement) {
-    dom.imageAdjustOffsetX.addEventListener("input", syncImageAdjustPreviewFromControls);
-  }
-
-  if (dom.imageAdjustOffsetY instanceof HTMLInputElement) {
-    dom.imageAdjustOffsetY.addEventListener("input", syncImageAdjustPreviewFromControls);
-  }
-
-  if (dom.imageAdjustCancelButton instanceof HTMLButtonElement) {
+  if (dom.imageAdjustCancelButton) {
     dom.imageAdjustCancelButton.addEventListener("click", closeImageAdjustDialog);
   }
 
-  if (dom.imageAdjustSaveButton instanceof HTMLButtonElement) {
+  if (dom.imageAdjustSaveButton) {
     dom.imageAdjustSaveButton.addEventListener("click", async () => {
       await saveImageAdjustDialog();
     });
   }
 
-  if (dom.imageAdjustDialog instanceof HTMLDialogElement) {
-    dom.imageAdjustDialog.addEventListener("cancel", (event) => {
-      event.preventDefault();
-      closeImageAdjustDialog();
-    });
-    dom.imageAdjustDialog.addEventListener("close", () => {
-      runtime.imageAdjustSession = null;
-    });
-  }
+  bindModalCloseEvents(dom.imageAdjustDialog, () => {
+    runtime.imageAdjustSession = null;
+  });
 
   document.addEventListener("visibilitychange", () => {
     if (!document.hidden) {
@@ -818,6 +980,10 @@ function bindEvents() {
 
     try {
       const incomingState = normalizeState(JSON.parse(event.newValue));
+      if (shouldDeferIncomingBoardState(incomingState)) {
+        queueDeferredBoardState(incomingState);
+        return;
+      }
       if (isIncomingStateNewer(incomingState, state)) {
         state = incomingState;
         render(true);
@@ -836,6 +1002,10 @@ function setupLocalSync() {
   runtime.channel = new BroadcastChannel(CHANNEL_NAME);
   runtime.channel.addEventListener("message", (event) => {
     const incomingState = normalizeState(event.data);
+    if (shouldDeferIncomingBoardState(incomingState)) {
+      queueDeferredBoardState(incomingState);
+      return;
+    }
     if (isIncomingStateNewer(incomingState, state)) {
       state = incomingState;
       render(true);
@@ -845,6 +1015,9 @@ function setupLocalSync() {
 
 function startPolling() {
   window.clearInterval(runtime.pollHandle);
+  if (DISPLAY_VIEW) {
+    return;
+  }
   runtime.pollHandle = window.setInterval(() => {
     syncFromServer();
   }, POLL_INTERVAL_MS);
@@ -873,12 +1046,15 @@ function armBoardSequence() {
   }
 
   runtime.boardSequenceArmed = true;
-  runtime.lastBoardSequenceToken = state.weighIns.length ? state.weighIns[state.weighIns.length - 1].id : "";
 }
 
 async function syncFromServer(options = {}) {
   if (!isHttpMode()) {
     setSyncMode("local");
+    return state;
+  }
+
+  if (!options.forceRender && shouldPauseBoardPolling()) {
     return state;
   }
 
@@ -894,6 +1070,10 @@ async function syncFromServer(options = {}) {
 
     const incomingState = normalizeState(await response.json());
     setSyncMode("server");
+    if (shouldDeferIncomingBoardState(incomingState)) {
+      queueDeferredBoardState(incomingState);
+      return state;
+    }
     const shouldRenderIncoming =
       isIncomingStateNewer(incomingState, state) || runtime.syncMode === "starting" || options.forceRender === true;
 
@@ -946,8 +1126,18 @@ async function persistState(nextState) {
       throw new Error(`Status ${response.status}`);
     }
 
-    state = normalizeState(await response.json());
-    saveCachedState(state);
+    const serverState = normalizeState(await response.json());
+    const currentStateUpdatedAt = Date.parse(state.updatedAt);
+    const serverStateUpdatedAt = Date.parse(serverState.updatedAt);
+    const shouldApplyServerState =
+      !Number.isFinite(currentStateUpdatedAt) ||
+      !Number.isFinite(serverStateUpdatedAt) ||
+      serverStateUpdatedAt >= currentStateUpdatedAt;
+
+    if (shouldApplyServerState) {
+      state = serverState;
+      saveCachedState(state);
+    }
     broadcastState(state);
     setSyncMode("server");
     render(true);
@@ -966,11 +1156,31 @@ function render(force = false) {
   ensureRuntimeSelections();
   configureLayout();
   renderSyncStatus();
-  renderSettings();
-  renderOperator();
-  renderMeasurement();
-  renderPresenter();
-  renderDisplay(force);
+
+  if (DISPLAY_VIEW) {
+    renderDisplay(force);
+    return;
+  }
+
+  if (CURRENT_VIEW === "settings") {
+    renderSettings();
+    return;
+  }
+
+  if (CURRENT_VIEW === "operator") {
+    renderOperator();
+    return;
+  }
+
+  if (CURRENT_VIEW === "measurement") {
+    renderMeasurement();
+    return;
+  }
+
+  if (CURRENT_VIEW === "presenter") {
+    renderPresenter();
+    renderDisplay(force);
+  }
 }
 
 function renderSettings() {
@@ -1073,16 +1283,18 @@ function renderParticipantEditor() {
     applyParticipantImageStyle(previewImage, image);
     emptyState.hidden = Boolean(imagePath);
     emptyState.textContent = visibleParticipant ? stage.emptyLabel : "Spara deltagaren innan du laddar upp bilder.";
-    status.textContent = visibleParticipant
-      ? imagePath
-        ? `Bild kopplad för ${stage.label.toLowerCase()}.`
-        : stage.emptyLabel
-      : "Ingen deltagare vald.";
+    if (status) {
+      status.textContent = visibleParticipant
+        ? imagePath
+          ? `Bild kopplad för ${stage.label.toLowerCase()}.`
+          : stage.emptyLabel
+        : "Ingen deltagare vald.";
+    }
   });
 }
 
 function openImageAdjustDialog(participantId, stageKey, imageValue = null) {
-  if (!(dom.imageAdjustDialog instanceof HTMLDialogElement)) {
+  if (!dom.imageAdjustDialog) {
     return;
   }
 
@@ -1107,28 +1319,19 @@ function openImageAdjustDialog(participantId, stageKey, imageValue = null) {
     dom.imageAdjustTitle.textContent = `Justera ${stage.label}`;
   }
   if (dom.imageAdjustCopy instanceof HTMLElement) {
-    dom.imageAdjustCopy.textContent = `Justera bilden så att samma utsnitt används i alla bildkort för ${participant.name}.`;
+    dom.imageAdjustCopy.textContent = "";
   }
 
   syncImageAdjustControls(image);
   renderImageAdjustPreview(image, participant.name, stage.label);
-
-  if (!dom.imageAdjustDialog.open) {
-    dom.imageAdjustDialog.showModal();
-  }
+  openModalElement(dom.imageAdjustDialog);
 }
 
 function syncImageAdjustControls(imageValue) {
   const image = normalizeParticipantImage(imageValue);
-  if (dom.imageAdjustScale instanceof HTMLInputElement) {
-    dom.imageAdjustScale.value = String(image.scale);
-  }
-  if (dom.imageAdjustOffsetX instanceof HTMLInputElement) {
-    dom.imageAdjustOffsetX.value = String(image.positionX);
-  }
-  if (dom.imageAdjustOffsetY instanceof HTMLInputElement) {
-    dom.imageAdjustOffsetY.value = String(image.positionY);
-  }
+  setControlValue(dom.imageAdjustScale, String(image.scale));
+  setControlValue(dom.imageAdjustOffsetX, String(image.positionX));
+  setControlValue(dom.imageAdjustOffsetY, String(image.positionY));
 }
 
 function syncImageAdjustPreviewFromControls() {
@@ -1138,9 +1341,9 @@ function syncImageAdjustPreviewFromControls() {
 
   const nextImage = createParticipantImage(
     runtime.imageAdjustSession.image.path,
-    dom.imageAdjustOffsetX instanceof HTMLInputElement ? dom.imageAdjustOffsetX.value : runtime.imageAdjustSession.image.positionX,
-    dom.imageAdjustOffsetY instanceof HTMLInputElement ? dom.imageAdjustOffsetY.value : runtime.imageAdjustSession.image.positionY,
-    dom.imageAdjustScale instanceof HTMLInputElement ? dom.imageAdjustScale.value : runtime.imageAdjustSession.image.scale,
+    getControlValue(dom.imageAdjustOffsetX) || runtime.imageAdjustSession.image.positionX,
+    getControlValue(dom.imageAdjustOffsetY) || runtime.imageAdjustSession.image.positionY,
+    getControlValue(dom.imageAdjustScale) || runtime.imageAdjustSession.image.scale,
   );
 
   runtime.imageAdjustSession = {
@@ -1157,7 +1360,6 @@ function renderImageAdjustPreview(imageValue, participantName, stageLabel) {
   const image = normalizeParticipantImage(imageValue);
   if (
     !(dom.imageAdjustPreview instanceof HTMLImageElement) ||
-    !(dom.imageAdjustResultPreview instanceof HTMLImageElement) ||
     !(dom.imageAdjustEmpty instanceof HTMLElement)
   ) {
     return;
@@ -1165,21 +1367,15 @@ function renderImageAdjustPreview(imageValue, participantName, stageLabel) {
 
   const hasImage = Boolean(image.path);
   dom.imageAdjustPreview.hidden = !hasImage;
-  dom.imageAdjustResultPreview.hidden = !hasImage;
   dom.imageAdjustEmpty.hidden = hasImage;
   dom.imageAdjustPreview.alt = participantName ? `${participantName} - ${stageLabel}` : stageLabel;
-  dom.imageAdjustResultPreview.alt = participantName ? `${participantName} - ${stageLabel}` : stageLabel;
   dom.imageAdjustPreview.src = image.path || "";
-  dom.imageAdjustResultPreview.src = image.path || "";
   applyParticipantImageStyle(dom.imageAdjustPreview, image);
-  applyParticipantImageStyle(dom.imageAdjustResultPreview, image);
 }
 
 function closeImageAdjustDialog() {
   runtime.imageAdjustSession = null;
-  if (dom.imageAdjustDialog instanceof HTMLDialogElement && dom.imageAdjustDialog.open) {
-    dom.imageAdjustDialog.close();
-  }
+  closeModalElement(dom.imageAdjustDialog);
 }
 
 async function saveImageAdjustDialog() {
@@ -1230,8 +1426,9 @@ function renderWeighInSection() {
   const weighInShowcase = getActiveWeighInShowcase(state.presentation);
   const isStartedForSelected =
     Boolean(visibleParticipant) &&
-    weighInShowcase.phase === WEIGH_IN_SHOWCASE_PHASES.INTRO &&
-    weighInShowcase.participantId === visibleParticipant.id;
+    (runtime.measurementUnlockedParticipantId === visibleParticipant.id ||
+      (weighInShowcase.phase === WEIGH_IN_SHOWCASE_PHASES.INTRO &&
+        weighInShowcase.participantId === visibleParticipant.id));
   const isCountingForSelected =
     Boolean(visibleParticipant) &&
     weighInShowcase.phase === WEIGH_IN_SHOWCASE_PHASES.COUNTUP &&
@@ -1260,7 +1457,7 @@ function renderWeighInSection() {
 
   dom.measurementParticipantSearch.disabled = !state.participants.length;
   dom.measurementParticipantSelect.disabled = !filteredParticipants.length;
-  dom.weighPanelTitle.textContent = visibleParticipant ? `Invägning för ${visibleParticipant.name}` : "Ingen deltagare vald";
+  dom.weighPanelTitle.textContent = visibleParticipant ? `Deltagare: ${visibleParticipant.name}` : "Deltagare: Ingen deltagare vald";
   if (dom.weighPanelCopy instanceof HTMLElement) {
     dom.weighPanelCopy.textContent = visibleParticipant
       ? "Starta deltagaren på publikskärmen och lås sedan upp viktinmatningen när det är dags att väga frukten."
@@ -1295,8 +1492,9 @@ function renderWeighInSection() {
   dom.weighWeight.disabled = !visibleParticipant || !isStartedForSelected;
   dom.weighStartButton.disabled = !visibleParticipant;
   dom.weighSaveButton.disabled = !visibleParticipant || !isStartedForSelected;
+  setElementHidden(dom.weighSaveButton, !isStartedForSelected && !isCountingForSelected);
   dom.weighDeleteButton.disabled = !participantWeighIn;
-  dom.weighSaveButton.textContent = "Uppdatera vikt";
+  dom.weighSaveButton.setAttribute("text", "Uppdatera vikt");
 
   if (document.activeElement !== dom.weighWeight) {
     dom.weighWeight.value = participantWeighIn ? formatWeightInput(participantWeighIn.weightKg) : "";
@@ -1325,12 +1523,22 @@ function renderPresenter() {
   dom.presentPrevButton.disabled = spotlightState.eligibleEntries.length < 2;
   dom.presentNextButton.disabled = spotlightState.eligibleEntries.length < 2;
   dom.presentAutoplayButton.disabled = !spotlightState.eligibleEntries.length;
-  dom.presentAutoplayButton.textContent = state.presentation.spotlightAutoplay ? "Auto på" : "Auto av";
-  dom.presentCurrentMode.textContent = getModeLabel(state.presentation.mode);
-  dom.presentCurrentParticipant.textContent = currentEntry ? currentEntry.name : "-";
-  dom.presentCurrentAutoplay.textContent = state.presentation.spotlightAutoplay ? "På" : "Av";
-  dom.presentCurrentScreen.textContent = DISPLAY_VIEW ? "Visas på denna skärm" : "Redo att öppnas";
-  dom.presentCurrentCopy.textContent = buildPresentationCopy(spotlightState);
+  dom.presentAutoplayButton.setAttribute("text", state.presentation.spotlightAutoplay ? "Auto på" : "Auto av");
+  if (dom.presentCurrentMode) {
+    dom.presentCurrentMode.textContent = getModeLabel(state.presentation.mode);
+  }
+  if (dom.presentCurrentParticipant) {
+    dom.presentCurrentParticipant.textContent = currentEntry ? currentEntry.name : "-";
+  }
+  if (dom.presentCurrentAutoplay) {
+    dom.presentCurrentAutoplay.textContent = state.presentation.spotlightAutoplay ? "På" : "Av";
+  }
+  if (dom.presentCurrentScreen) {
+    dom.presentCurrentScreen.textContent = DISPLAY_VIEW ? "Visas på denna skärm" : "Redo att öppnas";
+  }
+  if (dom.presentCurrentCopy) {
+    dom.presentCurrentCopy.textContent = buildPresentationCopy(spotlightState);
+  }
 }
 
 function renderDisplay(force = false) {
@@ -1358,6 +1566,11 @@ function renderScoreboardDisplay(currentStandings, force = false) {
   const latestWeighIn = currentStandings.latestWeighIn;
   const weighInShowcase = getActiveWeighInShowcase(state.presentation);
   setScoreboardDensity(rankedEntries.length);
+
+  if (runtime.boardSequenceInProgress) {
+    syncBoardWeighInShowcase(rankedEntries, latestWeighIn);
+    return;
+  }
 
   if (!weighInShowcase.participantId || weighInShowcase.phase === WEIGH_IN_SHOWCASE_PHASES.IDLE) {
     pinBoardListToTopIfIdle();
@@ -1456,7 +1669,11 @@ function shouldDeferBoardScoreboardUpdate(weighInShowcase) {
   }
 
   const signature = getBoardShowcaseSignature(weighInShowcase);
-  return Boolean(signature) && runtime.completedBoardShowcaseSignature !== signature;
+  if (!signature) {
+    return false;
+  }
+
+  return !isConsumedBoardShowcaseToken(weighInShowcase.token);
 }
 
 function syncBoardWeighInShowcase(rankedEntries, latestWeighIn) {
@@ -1465,6 +1682,21 @@ function syncBoardWeighInShowcase(rankedEntries, latestWeighIn) {
   }
 
   const weighInShowcase = getActiveWeighInShowcase(state.presentation);
+  if (!runtime.boardSequenceArmed) {
+    if (weighInShowcase.participantId && weighInShowcase.phase !== WEIGH_IN_SHOWCASE_PHASES.IDLE) {
+      runtime.lastConsumedBoardShowcaseToken = sanitizeId(weighInShowcase.token);
+    }
+    cancelBoardWeighInSequence(true);
+    pinBoardListToTop(true);
+    if (rankedEntries.length) {
+      renderBoardScoreboardRows(rankedEntries, latestWeighIn, {
+        forceHighlight: false,
+        syncShowcase: false,
+      });
+    }
+    return;
+  }
+
   if (!weighInShowcase.participantId || weighInShowcase.phase === WEIGH_IN_SHOWCASE_PHASES.IDLE) {
     cancelBoardWeighInSequence(true);
     pinBoardListToTopIfIdle();
@@ -1477,27 +1709,24 @@ function syncBoardWeighInShowcase(rankedEntries, latestWeighIn) {
   }
 
   const signature = getBoardShowcaseSignature(weighInShowcase);
+  const showcaseToken = sanitizeId(weighInShowcase.token);
   if (isConsumedBoardShowcaseToken(weighInShowcase.token)) {
-    runtime.lastBoardShowcaseSignature = signature;
+    runtime.lastBoardShowcaseSignature = "";
+    runtime.lastBoardSequenceToken = "";
+    cancelBoardWeighInSequence(true);
     pinBoardListToTop(true);
     return;
   }
 
-  if (
-    weighInShowcase.phase === WEIGH_IN_SHOWCASE_PHASES.COUNTUP &&
-    runtime.completedBoardShowcaseSignature === signature
-  ) {
-    return;
-  }
-
-  if (runtime.lastBoardShowcaseSignature === signature) {
-    return;
-  }
-
-  runtime.lastBoardShowcaseSignature = signature;
-
   if (weighInShowcase.phase === WEIGH_IN_SHOWCASE_PHASES.INTRO) {
-    runtime.completedBoardShowcaseSignature = "";
+    if (runtime.lastBoardShowcaseSignature === signature) {
+      return;
+    }
+    if (runtime.lastBoardSequenceToken === showcaseToken && dom.boardSequenceLayer.classList.contains("is-active")) {
+      return;
+    }
+    runtime.lastBoardShowcaseSignature = signature;
+    runtime.lastBoardSequenceToken = showcaseToken;
     showBoardWeighInIntro(entry);
     return;
   }
@@ -1506,6 +1735,12 @@ function syncBoardWeighInShowcase(rankedEntries, latestWeighIn) {
     return;
   }
 
+  if (runtime.lastBoardShowcaseSignature === signature) {
+    return;
+  }
+
+  runtime.lastBoardShowcaseSignature = signature;
+  runtime.lastBoardSequenceToken = showcaseToken;
   runBoardWeighInSequence(entry, latestWeighIn, weighInShowcase);
 }
 
@@ -1533,6 +1768,7 @@ function getBoardShowcaseEntry(participantId, rankedEntries) {
 
 function showBoardWeighInIntro(entry) {
   cancelBoardWeighInSequence(true);
+  resetBoardSequenceCardVisualState();
 
   const frameRect = dom.displayBoardFrame.getBoundingClientRect();
   if (!frameRect.width || !frameRect.height) {
@@ -1553,7 +1789,10 @@ function showBoardWeighInIntro(entry) {
 }
 
 async function runBoardWeighInSequence(entry, latestWeighIn, weighInShowcase) {
-  cancelBoardWeighInSequence(true, { preserveLayer: true, preserveGallery: true });
+  cancelBoardWeighInSequence(true);
+  runtime.boardListTopLocked = false;
+  runtime.boardSequenceInProgress = true;
+  clearDeferredBoardStateFlush();
   runtime.boardSequenceRunId += 1;
   const runId = runtime.boardSequenceRunId;
   const showcaseSignature = getBoardShowcaseSignature(weighInShowcase);
@@ -1586,7 +1825,8 @@ async function runBoardWeighInSequence(entry, latestWeighIn, weighInShowcase) {
     return;
   }
 
-  const finalEntry = getBoardShowcaseEntry(weighInShowcase.participantId, standings.ranked);
+  const sequenceStandings = getStandings(state);
+  const finalEntry = getBoardShowcaseEntry(weighInShowcase.participantId, sequenceStandings.ranked);
   if (!finalEntry) {
     return;
   }
@@ -1603,8 +1843,7 @@ async function runBoardWeighInSequence(entry, latestWeighIn, weighInShowcase) {
     return;
   }
 
-  runtime.completedBoardShowcaseSignature = showcaseSignature;
-  renderBoardScoreboardRows(standings.ranked, standings.latestWeighIn, {
+  renderBoardScoreboardRows(sequenceStandings.ranked, sequenceStandings.latestWeighIn, {
     forceHighlight: false,
     syncShowcase: false,
   });
@@ -1644,7 +1883,9 @@ async function runBoardWeighInSequence(entry, latestWeighIn, weighInShowcase) {
   dom.boardSequenceCard.removeAttribute("style");
   dom.boardSequenceCard.classList.remove("is-awaiting-weight");
   dom.boardSequenceWeight.classList.remove("is-empty");
-  dom.boardSequenceRank.classList.remove("is-hidden");
+  if (dom.boardSequenceRank instanceof HTMLElement) {
+    dom.boardSequenceRank.classList.remove("is-hidden");
+  }
   dom.displayBoard.classList.remove("is-sequencing");
 
   if (landingRow) {
@@ -1657,6 +1898,12 @@ async function runBoardWeighInSequence(entry, latestWeighIn, weighInShowcase) {
   }
 
   await animateBoardListTo(0, SCOREBOARD_SEQUENCE_RETURN_MS);
+  if (runtime.boardListAnimation) {
+    runtime.boardListAnimation.cancel();
+    runtime.boardListAnimation = null;
+  }
+  cancelElementAnimations(dom.scoreboardList);
+  runtime.boardListTopLocked = true;
   setBoardListOffset(0);
 
   if (runId !== runtime.boardSequenceRunId) {
@@ -1664,17 +1911,20 @@ async function runBoardWeighInSequence(entry, latestWeighIn, weighInShowcase) {
   }
 
   await consumeCompletedWeighInShowcase(showcaseSignature, runId);
+  if (runId !== runtime.boardSequenceRunId) {
+    return;
+  }
+
+  runtime.boardSequenceInProgress = false;
+  scheduleDeferredBoardStateFlush();
 }
 
 function populateBoardSequence(entry, options = {}) {
-  dom.boardSequenceRank.textContent = options.hideRank ? "" : entry.rank ? String(entry.rank) : "";
   dom.boardSequenceName.textContent = entry.name;
   dom.boardSequenceTeam.textContent = entry.team || "Ingen lagetikett";
-  dom.boardSequenceMovement.textContent = options.movement ?? "";
   dom.boardSequenceCard.classList.toggle("has-gallery", renderBoardSequenceGallery(entry));
   setBoardSequenceWeightText(options.weightText || "");
   dom.boardSequenceCard.classList.toggle("is-awaiting-weight", Boolean(options.hideWeight));
-  dom.boardSequenceRank.classList.toggle("is-hidden", Boolean(options.hideRank));
   dom.boardSequenceWeight.classList.toggle("is-empty", Boolean(options.hideWeight));
 }
 
@@ -1694,10 +1944,10 @@ function triggerBoardSequenceHighlight(row, latestWeighIn) {
 
 function getBoardSequenceStartRect(frameRect, entry = null) {
   const hasGallery = hasBoardSequenceGallery(entry);
-  const width = Math.min(frameRect.width * 0.94, hasGallery ? 1240 : 1080);
+  const width = Math.min(frameRect.width * 0.9, hasGallery ? 1180 : 1020);
   const height = hasGallery
-    ? Math.min(Math.max(frameRect.height * 0.58, 380), 500)
-    : Math.min(Math.max(frameRect.height * 0.4, 276), 340);
+    ? Math.min(Math.max(frameRect.height * 0.54, 360), 470)
+    : Math.min(Math.max(frameRect.height * 0.37, 252), 316);
   const maxTop = Math.max(18, frameRect.height - height - 18);
   const viewportCenteredTop = ((window.innerHeight || frameRect.height) - height) / 2 - frameRect.top;
   return {
@@ -1789,36 +2039,66 @@ function animateBoardSequenceCardToRect(targetRect, runId) {
   dom.boardSequenceCard.style.transform = `translate(${currentRect.left}px, ${currentRect.top}px) scale(1)`;
   dom.boardSequenceCard.style.opacity = "1";
 
-  const animation = dom.boardSequenceCard.animate(
-    [
-      {
-        transform: `translate(${currentRect.left}px, ${currentRect.top}px) scale(1)`,
-        opacity: 1,
-      },
-      {
-        transform: `translate(${targetLeft}px, ${targetTop}px) scale(${uniformScale})`,
-        opacity: 0.7,
-      },
-    ],
-    {
-      duration: SCOREBOARD_SEQUENCE_LAND_MS,
-      easing: "cubic-bezier(0.18, 0.84, 0.22, 1)",
-      fill: "forwards",
-    },
-  );
+  const startedAt = performance.now();
+  let frameHandle = 0;
+  let resolveAnimation = () => {};
 
-  runtime.boardCardAnimation = animation;
-  return animation.finished
-    .catch(() => {})
-    .finally(() => {
+  const animation = {
+    cancelled: false,
+    cancel() {
+      if (animation.cancelled) {
+        return;
+      }
+      animation.cancelled = true;
+      if (frameHandle) {
+        window.cancelAnimationFrame(frameHandle);
+        frameHandle = 0;
+      }
       if (runtime.boardCardAnimation === animation) {
         runtime.boardCardAnimation = null;
       }
-      if (runId === runtime.boardSequenceRunId) {
-        dom.boardSequenceCard.style.transform = `translate(${targetLeft}px, ${targetTop}px) scale(${uniformScale})`;
-        dom.boardSequenceCard.style.opacity = "0.7";
+      resolveAnimation();
+    },
+  };
+
+  const tick = (now) => {
+    if (animation.cancelled) {
+      return;
+    }
+
+    if (runId !== runtime.boardSequenceRunId) {
+      animation.cancel();
+      return;
+    }
+
+    const progress = Math.min(1, (now - startedAt) / SCOREBOARD_SEQUENCE_LAND_MS);
+    const eased = 1 - Math.pow(1 - progress, 3);
+    const currentLeft = currentRect.left + (targetLeft - currentRect.left) * eased;
+    const currentTop = currentRect.top + (targetTop - currentRect.top) * eased;
+    const currentScale = 1 + (uniformScale - 1) * eased;
+    const currentOpacity = 1 + (0.7 - 1) * eased;
+
+    dom.boardSequenceCard.style.transform = `translate(${currentLeft}px, ${currentTop}px) scale(${currentScale})`;
+    dom.boardSequenceCard.style.opacity = String(currentOpacity);
+
+    if (progress >= 1) {
+      if (runtime.boardCardAnimation === animation) {
+        runtime.boardCardAnimation = null;
       }
-    });
+      dom.boardSequenceCard.style.transform = `translate(${targetLeft}px, ${targetTop}px) scale(${uniformScale})`;
+      dom.boardSequenceCard.style.opacity = "0.7";
+      resolveAnimation();
+      return;
+    }
+
+    frameHandle = window.requestAnimationFrame(tick);
+  };
+
+  runtime.boardCardAnimation = animation;
+  return new Promise((resolve) => {
+    resolveAnimation = resolve;
+    frameHandle = window.requestAnimationFrame(tick);
+  });
 }
 
 function animateBoardSequenceWeight(targetWeightKg, durationMs, runId, sequenceSeed = "") {
@@ -1995,30 +2275,69 @@ function animateBoardListTo(offsetY, durationMs) {
     return Promise.resolve();
   }
 
-  const animation = dom.scoreboardList.animate(
-    [
-      { transform: `translateY(${currentOffsetY}px)` },
-      { transform: `translateY(${offsetY}px)` },
-    ],
-    {
-      duration: durationMs,
-      easing: "cubic-bezier(0.22, 0.8, 0.18, 1)",
-      fill: "forwards",
+  const startedAt = performance.now();
+  let frameHandle = 0;
+  let resolveAnimation = () => {};
+
+  const animation = {
+    cancelled: false,
+    cancel() {
+      if (animation.cancelled) {
+        return;
+      }
+      animation.cancelled = true;
+      if (frameHandle) {
+        window.cancelAnimationFrame(frameHandle);
+        frameHandle = 0;
+      }
+      if (runtime.boardListAnimation === animation) {
+        runtime.boardListAnimation = null;
+      }
+      resolveAnimation();
     },
-  );
+  };
+
+  const tick = (now) => {
+    if (animation.cancelled) {
+      return;
+    }
+
+    const progress = Math.min(1, (now - startedAt) / durationMs);
+    const eased = 1 - Math.pow(1 - progress, 3);
+    const nextOffset = currentOffsetY + (offsetY - currentOffsetY) * eased;
+    setBoardListOffset(nextOffset);
+
+    if (progress >= 1) {
+      if (runtime.boardListAnimation === animation) {
+        runtime.boardListAnimation = null;
+      }
+      setBoardListOffset(offsetY);
+      resolveAnimation();
+      return;
+    }
+
+    frameHandle = window.requestAnimationFrame(tick);
+  };
 
   runtime.boardListAnimation = animation;
-  return animation.finished.catch(() => {}).finally(() => {
-    if (runtime.boardListAnimation === animation) {
-      runtime.boardListAnimation = null;
-    }
-    setBoardListOffset(offsetY);
+  return new Promise((resolve) => {
+    resolveAnimation = resolve;
+    frameHandle = window.requestAnimationFrame(tick);
   });
 }
 
 function setBoardListOffset(offsetY) {
-  runtime.boardListOffsetY = offsetY;
-  dom.scoreboardList.style.transform = `translateY(${offsetY}px)`;
+  const shouldClampToTop = runtime.boardListTopLocked && offsetY < 0;
+  const nextOffsetY = shouldClampToTop ? 0 : offsetY;
+  if (shouldClampToTop) {
+    if (runtime.boardListAnimation) {
+      runtime.boardListAnimation.cancel();
+      runtime.boardListAnimation = null;
+    }
+    cancelElementAnimations(dom.scoreboardList);
+  }
+  runtime.boardListOffsetY = nextOffsetY;
+  dom.scoreboardList.style.transform = `translateY(${nextOffsetY}px)`;
 }
 
 function pinBoardListToTop(force = false) {
@@ -2026,19 +2345,25 @@ function pinBoardListToTop(force = false) {
     return;
   }
 
-  const activeShowcase = getActiveWeighInShowcase(state.presentation);
-  if (!force && activeShowcase.participantId && activeShowcase.phase !== WEIGH_IN_SHOWCASE_PHASES.IDLE) {
+  if (!force && isBoardSequenceActiveLocally()) {
     return;
   }
 
+  if (runtime.boardListAnimation) {
+    runtime.boardListAnimation.cancel();
+    runtime.boardListAnimation = null;
+  }
+  cancelElementAnimations(dom.scoreboardList);
+  runtime.boardListTopLocked = true;
   setBoardListOffset(0);
   window.requestAnimationFrame(() => {
-    const latestShowcase = getActiveWeighInShowcase(state.presentation);
-    if (
-      force ||
-      !latestShowcase.participantId ||
-      latestShowcase.phase === WEIGH_IN_SHOWCASE_PHASES.IDLE
-    ) {
+    if (force || !isBoardSequenceActiveLocally()) {
+      if (runtime.boardListAnimation) {
+        runtime.boardListAnimation.cancel();
+        runtime.boardListAnimation = null;
+      }
+      cancelElementAnimations(dom.scoreboardList);
+      runtime.boardListTopLocked = true;
       setBoardListOffset(0);
     }
   });
@@ -2048,10 +2373,45 @@ function pinBoardListToTopIfIdle() {
   pinBoardListToTop(false);
 }
 
+function isBoardSequenceActiveLocally() {
+  if (!DISPLAY_VIEW) {
+    return false;
+  }
+
+  if (runtime.boardSequenceInProgress) {
+    return true;
+  }
+
+  return dom.boardSequenceLayer instanceof HTMLElement && dom.boardSequenceLayer.classList.contains("is-active");
+}
+
+function resetBoardSequenceCardVisualState() {
+  if (!(dom.boardSequenceCard instanceof HTMLElement)) {
+    return;
+  }
+
+  if (runtime.boardCardAnimation) {
+    runtime.boardCardAnimation.cancel();
+    runtime.boardCardAnimation = null;
+  }
+
+  cancelElementAnimations(dom.boardSequenceCard);
+  dom.boardSequenceCard.removeAttribute("style");
+  dom.boardSequenceCard.classList.remove("is-landing");
+  dom.boardSequenceCard.classList.remove("has-gallery");
+  dom.boardSequenceCard.classList.remove("is-awaiting-weight");
+  if (dom.boardSequenceRank instanceof HTMLElement) {
+    dom.boardSequenceRank.classList.remove("is-hidden");
+  }
+  dom.boardSequenceWeight.classList.remove("is-empty");
+}
+
 function cancelBoardWeighInSequence(resetList = false, options = {}) {
   const preserveLayer = Boolean(options.preserveLayer);
   const preserveGallery = Boolean(options.preserveGallery);
   runtime.boardSequenceRunId += 1;
+  runtime.boardSequenceInProgress = false;
+  clearDeferredBoardStateFlush();
   const currentOffsetY = resetList ? 0 : getElementTranslateY(dom.scoreboardList);
 
   cancelBoardWeightAnimation();
@@ -2072,11 +2432,7 @@ function cancelBoardWeighInSequence(resetList = false, options = {}) {
   if (!preserveLayer) {
     dom.boardSequenceLayer.classList.remove("is-active");
     dom.boardSequenceLayer.hidden = true;
-    dom.boardSequenceCard.removeAttribute("style");
-    dom.boardSequenceCard.classList.remove("has-gallery");
-    dom.boardSequenceCard.classList.remove("is-awaiting-weight");
-    dom.boardSequenceRank.classList.remove("is-hidden");
-    dom.boardSequenceWeight.classList.remove("is-empty");
+    resetBoardSequenceCardVisualState();
     dom.displayBoard.classList.remove("is-sequencing");
   }
 
@@ -2089,6 +2445,11 @@ function cancelBoardWeighInSequence(resetList = false, options = {}) {
   }
 
   setBoardSequenceWeightText("");
+  if (resetList) {
+    runtime.lastBoardShowcaseSignature = "";
+    runtime.lastBoardSequenceToken = "";
+  }
+  runtime.boardListTopLocked = resetList;
   setBoardListOffset(currentOffsetY);
 }
 
@@ -2234,6 +2595,102 @@ function isConsumedBoardShowcaseToken(token) {
   return runtime.lastConsumedBoardShowcaseToken === normalizedToken;
 }
 
+function shouldDeferIncomingBoardState(incomingState) {
+  if (!DISPLAY_VIEW) {
+    return false;
+  }
+
+  const boardModeActive = state.presentation.mode === "board" || incomingState.presentation.mode === "board";
+  if (!boardModeActive) {
+    return false;
+  }
+
+  if (Date.now() < runtime.boardIncomingStateHoldUntil) {
+    return true;
+  }
+
+  if (runtime.boardSequenceInProgress) {
+    return true;
+  }
+
+  return false;
+}
+
+function queueDeferredBoardState(incomingState) {
+  if (!incomingState) {
+    return;
+  }
+
+  if (
+    !runtime.boardDeferredState ||
+    isIncomingStateNewer(incomingState, runtime.boardDeferredState) ||
+    incomingState.updatedAt === runtime.boardDeferredState.updatedAt
+  ) {
+    runtime.boardDeferredState = incomingState;
+  }
+  scheduleDeferredBoardStateFlush();
+}
+
+function clearDeferredBoardStateFlush() {
+  if (runtime.boardDeferredApplyHandle) {
+    window.clearTimeout(runtime.boardDeferredApplyHandle);
+    runtime.boardDeferredApplyHandle = null;
+  }
+}
+
+function scheduleDeferredBoardStateFlush() {
+  clearDeferredBoardStateFlush();
+
+  if (!runtime.boardDeferredState) {
+    return;
+  }
+
+  const delayMs = Math.max(40, runtime.boardIncomingStateHoldUntil - Date.now() + 40);
+  runtime.boardDeferredApplyHandle = window.setTimeout(() => {
+    runtime.boardDeferredApplyHandle = null;
+    flushDeferredBoardState();
+  }, delayMs);
+}
+
+function flushDeferredBoardState() {
+  if (!runtime.boardDeferredState) {
+    return false;
+  }
+
+  if (shouldDeferIncomingBoardState(runtime.boardDeferredState)) {
+    scheduleDeferredBoardStateFlush();
+    return false;
+  }
+
+  const queuedState = runtime.boardDeferredState;
+  runtime.boardDeferredState = null;
+
+  if (isIncomingStateNewer(queuedState, state) || queuedState.updatedAt === state.updatedAt) {
+    state = queuedState;
+    saveCachedState(state);
+    render(true);
+    return true;
+  }
+
+  return false;
+}
+
+function shouldPauseBoardPolling() {
+  if (!DISPLAY_VIEW || state.presentation.mode !== "board") {
+    return false;
+  }
+
+  if (Date.now() < runtime.boardIncomingStateHoldUntil) {
+    return true;
+  }
+
+  if (runtime.boardSequenceInProgress) {
+    return true;
+  }
+
+  return false;
+}
+
 async function consumeCompletedWeighInShowcase(signature, runId) {
   if (!signature || runId !== runtime.boardSequenceRunId) {
     return;
@@ -2245,14 +2702,9 @@ async function consumeCompletedWeighInShowcase(signature, runId) {
   }
 
   runtime.lastConsumedBoardShowcaseToken = sanitizeId(activeShowcase.token);
-
-  await persistState({
-    ...state,
-    presentation: {
-      ...state.presentation,
-      weighInShowcase: createEmptyWeighInShowcase(),
-    },
-  });
+  runtime.boardIncomingStateHoldUntil = Date.now() + BOARD_INCOMING_STATE_HOLD_MS;
+  runtime.lastBoardShowcaseSignature = "";
+  runtime.lastBoardSequenceToken = "";
   pinBoardListToTopIfIdle();
 }
 
@@ -2494,27 +2946,15 @@ function getParticipantWeighIn(participantId) {
 
 function openParticipantCreateDialog() {
   dom.participantCreateForm.reset();
-  if (typeof dom.participantCreateDialog.showModal === "function") {
-    if (!dom.participantCreateDialog.open) {
-      dom.participantCreateDialog.showModal();
-    }
-  } else {
-    dom.participantCreateDialog.setAttribute("open", "");
-  }
+  openModalElement(dom.participantCreateDialog);
   window.setTimeout(() => {
     dom.participantCreateName.focus();
   }, 0);
 }
 
 function closeParticipantCreateDialog() {
-  if (typeof dom.participantCreateDialog.close === "function") {
-    if (dom.participantCreateDialog.open) {
-      dom.participantCreateDialog.close();
-    }
-  } else {
-    dom.participantCreateDialog.removeAttribute("open");
-    dom.participantCreateForm.reset();
-  }
+  closeModalElement(dom.participantCreateDialog);
+  dom.participantCreateForm.reset();
 }
 
 function getPreferredSpotlightParticipantId() {
@@ -3218,6 +3658,10 @@ function normalizeWeighInShowcase(rawShowcase, participants) {
   }
 
   if (phase === WEIGH_IN_SHOWCASE_PHASES.INTRO) {
+    if (Number.isFinite(startedAtMs) && Date.now() - startedAtMs > WEIGH_IN_SHOWCASE_STALE_INTRO_MS) {
+      return createEmptyWeighInShowcase();
+    }
+
     return {
       token: sanitizeId(input.token) || createId("seq"),
       participantId,
@@ -3246,6 +3690,21 @@ function normalizeWeighInShowcase(rawShowcase, participants) {
 
 function getActiveWeighInShowcase(presentationState = state.presentation) {
   return normalizeWeighInShowcase(presentationState && presentationState.weighInShowcase, state.participants);
+}
+
+function clearParticipantWeighInShowcase(currentState) {
+  const currentShowcase = getActiveWeighInShowcase(currentState.presentation);
+  if (!currentShowcase.participantId || currentShowcase.phase === WEIGH_IN_SHOWCASE_PHASES.IDLE) {
+    return currentState;
+  }
+
+  return normalizeState({
+    ...currentState,
+    presentation: {
+      ...currentState.presentation,
+      weighInShowcase: createEmptyWeighInShowcase(),
+    },
+  });
 }
 
 function normalizeParticipantImages(rawImages) {
@@ -3321,6 +3780,23 @@ function notify(message) {
 }
 
 function renderSelectOptions(select, options, selectedValue) {
+  const isTdsDropdown = select?.tagName === "TDS-DROPDOWN";
+
+  if (isTdsDropdown) {
+    select.innerHTML = options.length
+      ? options
+          .map(
+            (option) =>
+              `<tds-dropdown-option value="${escapeHtml(option.value)}"${option.value === selectedValue ? " selected" : ""}>${escapeHtml(option.label)}</tds-dropdown-option>`,
+          )
+          .join("")
+      : '<tds-dropdown-option value="">Inga val tillgängliga</tds-dropdown-option>';
+    if (typeof selectedValue === "string") {
+      select.value = selectedValue;
+    }
+    return;
+  }
+
   select.innerHTML = options.length
     ? options
         .map(
@@ -3338,6 +3814,17 @@ function syncInputValue(input, value) {
 }
 
 function syncSelectValue(select, value) {
+  if (select?.tagName === "TDS-DROPDOWN") {
+    const options = Array.from(select.querySelectorAll("tds-dropdown-option"));
+    if (options.some((option) => option.getAttribute("value") === value)) {
+      select.value = value;
+      options.forEach((option) => {
+        option.toggleAttribute("selected", option.getAttribute("value") === value);
+      });
+    }
+    return;
+  }
+
   if (Array.from(select.options).some((option) => option.value === value)) {
     select.value = value;
   }
@@ -3346,6 +3833,7 @@ function syncSelectValue(select, value) {
 function setToggleState(button, isActive) {
   button.classList.toggle("is-active", isActive);
   button.setAttribute("aria-pressed", String(isActive));
+  button.setAttribute("variant", isActive ? "primary" : "secondary");
 }
 
 function wait(durationMs) {
@@ -3592,3 +4080,277 @@ function escapeHtml(value) {
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#39;");
 }
+
+function bindControlEvents(element, handler) {
+  if (!element || typeof handler !== "function") {
+    return;
+  }
+
+  CONTROL_EVENTS.forEach((eventName) => {
+    element.addEventListener(eventName, handler);
+  });
+}
+
+function getControlValue(element) {
+  if (!element || !("value" in element)) {
+    return "";
+  }
+
+  return typeof element.value === "string" || typeof element.value === "number" ? String(element.value) : "";
+}
+
+function setControlValue(element, value) {
+  if (!element || !("value" in element) || document.activeElement === element) {
+    return;
+  }
+
+  element.value = value;
+}
+
+function setControlDisabled(element, disabled) {
+  if (!element) {
+    return;
+  }
+
+  if ("disabled" in element) {
+    element.disabled = Boolean(disabled);
+  }
+
+  if (disabled) {
+    element.setAttribute("disabled", "");
+  } else {
+    element.removeAttribute("disabled");
+  }
+}
+
+function setElementHidden(element, shouldHide) {
+  if (!element) {
+    return;
+  }
+
+  element.classList.toggle("is-hidden", Boolean(shouldHide));
+  element.setAttribute("aria-hidden", shouldHide ? "true" : "false");
+}
+
+function closeDropdownElement(element) {
+  if (!element) {
+    return;
+  }
+
+  if (typeof element.close === "function") {
+    element.close().catch(() => {});
+  }
+
+  if ("open" in element) {
+    element.open = false;
+  }
+
+  element.removeAttribute("open");
+
+  if (typeof element.blur === "function") {
+    element.blur();
+  }
+
+  const list = getDropdownListElement(element);
+  if (list) {
+    list.classList.remove("open", "animation-enter-slide", "animation-enter-fade");
+    if (!list.classList.contains("closed")) {
+      list.classList.add("closed");
+    }
+    list.removeAttribute("style");
+  }
+}
+
+function getDropdownListElement(dropdown) {
+  if (!dropdown || !dropdown.shadowRoot) {
+    return null;
+  }
+
+  return dropdown.shadowRoot.querySelector(".dropdown-list");
+}
+
+function positionDropdownList(dropdown) {
+  const list = getDropdownListElement(dropdown);
+  if (!list) {
+    return;
+  }
+
+  const isOpen =
+    list.classList.contains("open") ||
+    dropdown.hasAttribute("open") ||
+    (typeof dropdown.open === "boolean" && dropdown.open);
+  if (!isOpen) {
+    return;
+  }
+
+  const rect = dropdown.getBoundingClientRect();
+  const viewportHeight = window.innerHeight || document.documentElement.clientHeight;
+  const gap = 6;
+  const spaceBelow = viewportHeight - rect.bottom - gap;
+  const spaceAbove = rect.top - gap;
+  const openUp = spaceBelow < 160 && spaceAbove > spaceBelow;
+  const maxHeight = Math.max(140, Math.min(320, openUp ? spaceAbove : spaceBelow));
+
+  list.style.position = "fixed";
+  list.style.left = `${Math.round(rect.left)}px`;
+  list.style.width = `${Math.round(rect.width)}px`;
+  list.style.zIndex = "9999";
+  list.style.maxHeight = `${Math.round(maxHeight)}px`;
+  list.style.overflow = "auto";
+  list.style.transform = "none";
+
+  if (openUp) {
+    list.style.top = "";
+    list.style.bottom = `${Math.round(viewportHeight - rect.top + gap)}px`;
+  } else {
+    list.style.bottom = "";
+    list.style.top = `${Math.round(rect.bottom + gap)}px`;
+  }
+}
+
+function bindDropdownPositioning(dropdown) {
+  if (!dropdown) {
+    return;
+  }
+
+  const handler = () => window.setTimeout(() => positionDropdownList(dropdown), 0);
+  dropdown.addEventListener("click", () => {
+    [dom.participantSelect, dom.measurementParticipantSelect, dom.presentParticipant, dom.presentInterval].forEach((item) => {
+      if (item && item !== dropdown) {
+        closeDropdownElement(item);
+      }
+    });
+    const list = getDropdownListElement(dropdown);
+    if (list && list.classList.contains("open")) {
+      closeDropdownElement(dropdown);
+      return;
+    }
+    handler();
+  });
+  dropdown.addEventListener("keydown", handler);
+  dropdown.addEventListener("tdsChange", handler);
+  dropdown.addEventListener("focus", handler);
+}
+
+function stabilizeOpenDropdowns() {
+  [
+    dom.participantSelect,
+    dom.measurementParticipantSelect,
+    dom.presentParticipant,
+    dom.presentInterval,
+  ].forEach((dropdown) => {
+    if (!dropdown) {
+      return;
+    }
+
+    const list = getDropdownListElement(dropdown);
+    const isOpen =
+      (list && list.classList.contains("open")) ||
+      dropdown.hasAttribute("open") ||
+      ("open" in dropdown && dropdown.open);
+    if (dropdown.hasAttribute("data-force-close") && isOpen) {
+      closeDropdownElement(dropdown);
+    }
+  });
+}
+
+function startDropdownStabilizer() {
+  if (runtime.dropdownStabilizerHandle) {
+    window.clearInterval(runtime.dropdownStabilizerHandle);
+  }
+
+  runtime.dropdownStabilizerHandle = window.setInterval(stabilizeOpenDropdowns, 160);
+}
+
+function setButtonText(element, text) {
+  if (!element) {
+    return;
+  }
+
+  element.setAttribute("text", text);
+  if ("text" in element) {
+    element.text = text;
+  }
+  element.textContent = text;
+}
+
+function setTagText(element, text) {
+  if (!element) {
+    return;
+  }
+
+  element.setAttribute("text", text);
+  element.textContent = text;
+}
+
+function bindModalCloseEvents(modal, onClose) {
+  if (!modal || typeof onClose !== "function") {
+    return;
+  }
+
+  ["close", "tdsClose", "tds-close", "close-button-clicked", "modalClosed"].forEach((eventName) => {
+    modal.addEventListener(eventName, onClose);
+  });
+}
+
+function openModalElement(modal) {
+  if (!modal) {
+    return;
+  }
+
+  if (typeof modal.show === "function") {
+    modal.show();
+    return;
+  }
+
+  if (typeof modal.openModal === "function") {
+    modal.openModal();
+    return;
+  }
+
+  if (typeof modal.showModal === "function") {
+    modal.showModal();
+    return;
+  }
+
+  if ("open" in modal) {
+    modal.open = true;
+  }
+  modal.show = true;
+  modal.setAttribute("open", "");
+  modal.setAttribute("show", "");
+}
+
+function closeModalElement(modal) {
+  if (!modal) {
+    return;
+  }
+
+  if (typeof modal.hide === "function") {
+    modal.hide();
+    return;
+  }
+
+  if (typeof modal.dismiss === "function") {
+    modal.dismiss();
+    return;
+  }
+
+  if (typeof modal.closeModal === "function") {
+    modal.closeModal();
+    return;
+  }
+
+  if (typeof modal.close === "function") {
+    modal.close();
+    return;
+  }
+
+  if ("open" in modal) {
+    modal.open = false;
+  }
+  modal.show = false;
+  modal.removeAttribute("open");
+  modal.removeAttribute("show");
+}
+

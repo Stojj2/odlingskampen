@@ -5,489 +5,361 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Odlingskampen</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@scania/tegel@1.50.0/dist/tegel/tegel.css" />
-  <link rel="stylesheet" href="styles.css?v=20260411-rules-121" />
+    <script>
+      if ((new URLSearchParams(window.location.search).get("view") || "operator") === "board") {
+        const boardStyles = document.createElement("link");
+        boardStyles.rel = "stylesheet";
+    boardStyles.href = "styles.css?v=20260415-sequence-clean-card-01";
+        document.head.appendChild(boardStyles);
+      }
+    </script>
+  <link rel="stylesheet" href="tegel-ui.css?v=20260415-display-shell-01" />
   </head>
-  <body class="scania tds-mode-dark">
-    <div class="workbench-shell" id="workbench-shell">
-      <header class="topbar">
-        <div class="topbar__brand">
-          <div class="topbar__brand-row">
-            <p class="eyebrow">Odlingskampen</p>
-            <button class="menu-toggle" id="menu-toggle-btn" type="button" aria-expanded="false" aria-controls="mobile-topbar-menu" aria-label="Öppna meny">
-              <span></span>
-              <span></span>
-              <span></span>
-            </button>
-          </div>
-          <h1 id="page-title">Admin</h1>
-          <p class="topbar-current-view" id="topbar-current-view">Inställningar</p>
-          <p class="subtitle" id="page-subtitle">
-            Hantera tävlingen, deltagarna och publikskärmen.
-          </p>
-        </div>
+  <body class="scania tds-mode-light tegel-page">
+    <tds-header class="tegel-app-header">
+      <tds-header-hamburger
+        id="menu-toggle-btn"
+        class="tegel-mobile-menu-trigger"
+        slot="hamburger"
+        tds-aria-label="Öppna meny"
+      ></tds-header-hamburger>
+      <tds-header-title slot="title">Odlingskampen</tds-header-title>
+      <tds-header-item class="tegel-desktop-header-item" selected>
+        <button type="button" data-nav-view="settings">Inställningar</button>
+      </tds-header-item>
+      <tds-header-item class="tegel-desktop-header-item">
+        <button type="button" data-nav-view="operator">Deltagare</button>
+      </tds-header-item>
+      <tds-header-item class="tegel-desktop-header-item">
+        <button type="button" data-nav-view="measurement">Mätning</button>
+      </tds-header-item>
+      <tds-header-item class="tegel-desktop-header-item">
+        <button type="button" data-nav-view="presenter">Presentation</button>
+      </tds-header-item>
+      <tds-header-item slot="end" class="tegel-desktop-header-item">
+        <button type="button" id="logout-btn">Logga ut</button>
+      </tds-header-item>
+    </tds-header>
 
-        <div class="topbar__aside" id="mobile-topbar-menu">
-          <nav class="view-nav" aria-label="Vyval">
-            <a class="view-nav__link" data-nav-view="settings" href="?view=settings">Inställningar</a>
-            <a class="view-nav__link" data-nav-view="operator" href="?view=operator">Deltagare</a>
-            <a class="view-nav__link" data-nav-view="measurement" href="?view=measurement">Mätning</a>
-            <a class="view-nav__link" data-nav-view="presenter" href="?view=presenter">Presentation</a>
-          </nav>
+    <tds-side-menu id="mobile-topbar-menu">
+      <tds-side-menu-overlay slot="overlay"></tds-side-menu-overlay>
+      <tds-side-menu-close-button slot="close-button"></tds-side-menu-close-button>
+      <tds-side-menu-item selected>
+        <button type="button" data-nav-view="settings">Inställningar</button>
+      </tds-side-menu-item>
+      <tds-side-menu-item>
+        <button type="button" data-nav-view="operator">Deltagare</button>
+      </tds-side-menu-item>
+      <tds-side-menu-item>
+        <button type="button" data-nav-view="measurement">Mätning</button>
+      </tds-side-menu-item>
+      <tds-side-menu-item>
+        <button type="button" data-nav-view="presenter">Presentation</button>
+      </tds-side-menu-item>
+      <tds-side-menu-item slot="end">
+        <button type="button" id="logout-btn-mobile">Logga ut</button>
+      </tds-side-menu-item>
+    </tds-side-menu>
 
-          <div class="header-actions">
-            <button class="ghost-button view-nav__link" id="logout-btn" type="button">Logga ut</button>
-          </div>
-        </div>
-      </header>
+    <div class="tegel-shell" id="workbench-shell">
+      <tds-message id="global-notice" variant="information" minimal no-icon hidden></tds-message>
 
-      <p class="topbar-notice" id="global-notice" aria-live="polite"></p>
-
-      <main class="workbench">
+      <main class="tegel-page-grid">
         <section class="view-page" id="settings-view">
-          <div class="page-grid page-grid--settings">
-            <article class="panel panel--settings-primary">
-              <div class="panel-head">
-                <div>
-                  <p class="panel-kicker">Tävlingsram</p>
-                  <h2>Grundinställningar</h2>
+          <div class="tegel-page-grid tegel-page-grid--settings">
+            <section class="tegel-section">
+              <div class="tegel-card-copy">
+                <h3>Grundinställningar</h3>
+              </div>
+              <div class="tegel-stack">
+                <form class="tegel-form-stack" id="event-form">
+                  <tds-text-field id="event-name" name="eventName" label="Tävlingsnamn" label-position="outside"></tds-text-field>
+                  <tds-text-field id="event-subtitle" name="eventSubtitle" label="Underrubrik" label-position="outside"></tds-text-field>
+                  <tds-textarea id="event-rules" name="eventRules" label="Regler" label-position="outside"></tds-textarea>
+                </form>
+                <div class="tegel-action-row">
+                  <tds-button id="settings-save-btn" size="md" text="Spara tävlingsinfo"></tds-button>
+                  <tds-button id="load-demo-btn" size="md" variant="secondary" text="Ladda demo"></tds-button>
+                  <tds-button id="reset-btn" size="md" variant="secondary" text="Nollställ"></tds-button>
+                  <tds-button id="competition-create-btn" size="md" text="Starta ny tävling"></tds-button>
                 </div>
               </div>
+            </section>
 
-              <form class="stack-form" id="event-form">
-                <label class="field">
-                  <span class="field-label">Tävlingsnamn</span>
-                  <input
-                    id="event-name"
-                    name="eventName"
-                    type="text"
-                    maxlength="120"
-                    placeholder="Odlingskampen 2026"
-                    required
-                  />
-                </label>
-
-                <label class="field">
-                  <span class="field-label">Underrubrik</span>
-                  <input
-                    id="event-subtitle"
-                    name="eventSubtitle"
-                    type="text"
-                    maxlength="140"
-                    placeholder="Live från företagets stora fruktvägning"
-                  />
-                </label>
-
-                <label class="field">
-                  <span class="field-label">Regler</span>
-                  <textarea
-                    id="event-rules"
-                    name="eventRules"
-                    class="competition-rules-textarea"
-                    maxlength="4000"
-                    placeholder="Skriv tävlingsreglerna här så att deltagarna kan läsa dem i sin meny."
-                  ></textarea>
-                </label>
-
-              </form>
-
-              <div class="button-row settings-action-bar">
-                <button class="primary-button" type="submit" form="event-form">Spara tävlingsinfo</button>
-                <button class="ghost-button" id="load-demo-btn" type="button">Ladda demo</button>
-                <button class="ghost-button ghost-button--danger" id="reset-btn" type="button">Nollställ</button>
-                <button class="primary-button" id="competition-create-btn" type="button">Starta ny tävling</button>
+            <section class="tegel-section tegel-settings-status">
+              <div class="tegel-card-copy">
+                <h3>Snabb översikt</h3>
               </div>
-            </article>
-
-            <article class="panel panel--settings-status">
-              <div class="panel-head">
-                <div>
-                  <p class="panel-kicker">Status</p>
-                  <h2>Snabb översikt</h2>
+              <div class="tegel-stack">
+                <div class="tegel-summary-grid">
+                  <tds-card class="tegel-stat-card" header="Deltagare"><div slot="body" class="tegel-metric-card-content"><strong id="summary-total">0</strong></div></tds-card>
+                  <tds-card class="tegel-stat-card" header="Invägda"><div slot="body" class="tegel-metric-card-content"><strong id="summary-weighed">0</strong></div></tds-card>
+                  <tds-card class="tegel-stat-card" header="Återstår"><div slot="body" class="tegel-metric-card-content"><strong id="summary-remaining">0</strong></div></tds-card>
+                  <tds-card class="tegel-stat-card" header="Ledare"><div slot="body" class="tegel-metric-card-content"><strong id="summary-leader">-</strong></div></tds-card>
                 </div>
-              </div>
-
-              <div class="summary-grid">
-                <div class="summary-card">
-                  <span class="summary-label">Deltagare</span>
-                  <strong id="summary-total">0</strong>
-                </div>
-                <div class="summary-card">
-                  <span class="summary-label">Invägda</span>
-                  <strong id="summary-weighed">0</strong>
-                </div>
-                <div class="summary-card">
-                  <span class="summary-label">Återstår</span>
-                  <strong id="summary-remaining">0</strong>
-                </div>
-                <div class="summary-card">
-                  <span class="summary-label">Ledare</span>
-                  <strong id="summary-leader">-</strong>
-                </div>
-              </div>
-
-              <div class="note-card">
-                <p class="note-card__label">Live-visning</p>
-                <strong id="settings-presentation-mode">Scoreboard</strong>
-                <p class="helper-text" id="settings-presentation-copy">
-                  Publikskärmen visar för närvarande leaderboarden.
-                </p>
-              </div>
-
-              <p class="operator-message" id="operator-message" aria-live="polite"></p>
-            </article>
-
-            <article class="panel panel--settings-history">
-              <div class="competition-history">
-                <div class="competition-history__head">
-                  <div>
-                    <p class="note-card__label">Tävlingshistorik</p>
-                    <p class="helper-text">Här ser du tidigare år och kan välja vilken tävling som ska vara aktiv.</p>
+                <tds-card class="tegel-note-card" header="Live-visning">
+                  <div slot="body" class="tegel-note-card-content">
+                    <strong id="settings-presentation-mode">Scoreboard</strong>
+                    <p id="settings-presentation-copy">Publikskärmen visar för närvarande leaderboarden.</p>
                   </div>
-                </div>
-                <div class="competition-history__list" id="competition-history-list"></div>
+                </tds-card>
+                <tds-message id="operator-message" variant="information" minimal no-icon hidden></tds-message>
               </div>
-            </article>
+            </section>
+
+            <section class="tegel-history-section">
+              <section class="tegel-section">
+                <div class="tegel-card-copy">
+                  <p>Här ser du tidigare år och kan välja vilken tävling som ska vara aktiv.</p>
+                </div>
+                <div class="tegel-history-list" id="competition-history-list">
+                  <tds-message variant="information" minimal no-icon>Inga tävlingar ännu.</tds-message>
+                </div>
+              </section>
+            </section>
           </div>
         </section>
 
         <section class="view-page" id="operator-view">
-          <div class="page-grid page-grid--operator">
-            <div class="stack-column">
-              <article class="panel">
-                <div class="panel-head">
-                  <div>
-                    <p class="panel-kicker">Deltagare</p>
-                    <h2>Välj deltagare</h2>
-                  </div>
+          <div class="tegel-page-grid tegel-page-grid--operator">
+            <section class="tegel-section">
+              <div class="tegel-card-copy">
+                <h3>Välj deltagare</h3>
+              </div>
+              <div class="tegel-stack">
+                <tds-text-field id="participant-search" label="Sök deltagare" label-position="outside" placeholder="Sök på namn, avdelning eller inloggningsnamn"></tds-text-field>
+                <tds-dropdown id="participant-select" label="Alla deltagare" label-position="outside" placeholder="Välj deltagare"></tds-dropdown>
+                <p id="participant-search-summary">Visar alla deltagare.</p>
+                <div class="tegel-action-row">
+                  <tds-button id="participant-open-create-btn" size="md" text="Registrera ny deltagare"></tds-button>
                 </div>
+              </div>
+            </section>
 
-                <label class="field">
-                  <span class="field-label">Sök deltagare</span>
-                  <input id="participant-search" type="search" maxlength="80" placeholder="Sök på namn, avdelning eller inloggningsnamn" />
-                </label>
-
-                <label class="field">
-                  <span class="field-label">Alla deltagare</span>
-                  <select id="participant-select"></select>
-                </label>
-                <p class="helper-text" id="participant-search-summary">Visar alla deltagare.</p>
-                <div class="button-row">
-                  <button class="primary-button" id="participant-open-create-btn" type="button">Registrera ny deltagare</button>
-                </div>
-              </article>
-
-              <article class="panel">
-                <div class="panel-head">
-                  <div>
-                    <p class="panel-kicker">Deltagarinfo</p>
-                    <h2>Redigera vald deltagare</h2>
-                  </div>
-                </div>
-                <form class="stack-form" id="participant-form">
-                  <label class="field">
-                    <span class="field-label">Namn</span>
-                    <input id="participant-name" type="text" maxlength="80" placeholder="Anna Andersson" />
-                  </label>
-
-                  <label class="field">
-                    <span class="field-label">Lag eller avdelning</span>
-                    <input id="participant-team" type="text" maxlength="80" placeholder="Produktion" />
-                  </label>
-
-                  <label class="field">
-                    <span class="field-label">Inloggningsnamn</span>
-                    <input id="participant-username-preview" type="text" readonly />
-                    <span class="helper-text" id="participant-username-hint">
-                      Skapas automatiskt från namnet, till exempel Anna.Andersson.
-                    </span>
-                  </label>
-
-                  <label class="field">
-                    <span class="field-label">Deltagarlösenord</span>
-                    <input
-                      id="participant-password"
-                      type="password"
-                      maxlength="120"
-                      autocomplete="new-password"
-                      placeholder="Sätt eller byt lösenord"
-                    />
-                    <span class="helper-text">Nya deltagare får standardlösenordet Odlingskampen. Lämna tomt om nuvarande lösenord ska behållas. Minst 3 tecken vid byte.</span>
-                  </label>
-
-                  <div class="button-row">
-                    <button class="primary-button" id="participant-save-btn" type="submit">Spara ändringar</button>
-                    <button class="ghost-button ghost-button--danger" id="participant-delete-btn" type="button">
-                      Ta bort deltagare
-                    </button>
-                  </div>
+            <section class="tegel-section">
+              <div class="tegel-card-copy">
+                <h3>Redigera vald deltagare</h3>
+              </div>
+              <div class="tegel-stack">
+                <form class="tegel-form-stack" id="participant-form">
+                  <tds-text-field id="participant-name" label="Namn" label-position="outside"></tds-text-field>
+                  <tds-text-field id="participant-team" label="Lag eller avdelning" label-position="outside"></tds-text-field>
+                  <tds-text-field id="participant-username-preview" label="Inloggningsnamn" label-position="outside" readonly></tds-text-field>
+                  <p id="participant-username-hint">Skapas automatiskt från namnet, till exempel Anna.Andersson.</p>
+                  <tds-text-field id="participant-password" type="password" label="Deltagarlösenord" label-position="outside"></tds-text-field>
+                  <p>Nya deltagare får standardlösenordet Odlingskampen. Lämna tomt om nuvarande lösenord ska behållas. Minst 3 tecken vid byte.</p>
                 </form>
-              </article>
-
-            </div>
-
-            <article class="panel panel--operator-gallery">
-              <div class="panel-head">
-                <div>
-                  <p class="panel-kicker">Bildsteg</p>
-                  <h2>Koppla bilder</h2>
+                <div class="tegel-action-row">
+                  <tds-button id="participant-save-btn" size="md" text="Spara ändringar"></tds-button>
+                  <tds-button id="participant-delete-btn" size="md" variant="secondary" text="Ta bort deltagare"></tds-button>
                 </div>
               </div>
+            </section>
 
-              <div class="milestone-grid" id="milestone-grid">
-                <section class="milestone-card">
-                  <div class="milestone-card__head">
-                    <p class="field-label">Steg 1</p>
-                    <h3>Första planta</h3>
-                    <p class="helper-text">När fröet visar första tydliga början till planta.</p>
-                  </div>
+            <section class="tegel-stage-section">
+              <section class="tegel-section">
+                <div class="tegel-card-copy">
+                  <h3>Bilder</h3>
+                </div>
+                <div class="tegel-stage-grid" id="milestone-grid">
+                  <tds-card class="tegel-stage-card" header="Första planta">
+                    <div slot="body" class="tegel-stage-card-body">
+                      <div class="tegel-stage-preview" data-stage-preview-shell="sprout">
+                        <img data-stage-preview="sprout" class="stage-preview-image" alt="" hidden />
+                        <div class="empty-state" data-stage-empty="sprout">Ingen bild uppladdad ännu.</div>
+                      </div>
+                      <div class="tegel-stage-footer">
+                        <div class="tegel-stage-actions">
+                          <label class="tegel-file-control"><input data-stage-input="sprout" type="file" accept="image/*" hidden /><tds-button data-stage-upload="sprout" size="sm" text="Välj"></tds-button></label>
+                          <tds-button data-stage-adjust="sprout" size="sm" variant="secondary" text="Justera"></tds-button>
+                          <tds-button data-stage-remove="sprout" size="sm" variant="secondary" text="Ta bort"></tds-button>
+                        </div>
+                      </div>
+                    </div>
+                  </tds-card>
 
-                  <div class="stage-preview-shell" data-stage-preview-shell="sprout">
-                    <img data-stage-preview="sprout" class="stage-preview-image" alt="" hidden />
-                    <div class="empty-state" data-stage-empty="sprout">Ingen bild uppladdad ännu.</div>
-                  </div>
+                  <tds-card class="tegel-stage-card" header="Första blomman">
+                    <div slot="body" class="tegel-stage-card-body">
+                      <div class="tegel-stage-preview" data-stage-preview-shell="flower">
+                        <img data-stage-preview="flower" class="stage-preview-image" alt="" hidden />
+                        <div class="empty-state" data-stage-empty="flower">Ingen bild uppladdad ännu.</div>
+                      </div>
+                      <div class="tegel-stage-footer">
+                        <div class="tegel-stage-actions">
+                          <label class="tegel-file-control"><input data-stage-input="flower" type="file" accept="image/*" hidden /><tds-button data-stage-upload="flower" size="sm" text="Välj"></tds-button></label>
+                          <tds-button data-stage-adjust="flower" size="sm" variant="secondary" text="Justera"></tds-button>
+                          <tds-button data-stage-remove="flower" size="sm" variant="secondary" text="Ta bort"></tds-button>
+                        </div>
+                      </div>
+                    </div>
+                  </tds-card>
 
-                  <label class="ghost-button file-button">
-                    <span>Välj bild</span>
-                    <input data-stage-input="sprout" type="file" accept="image/*" hidden />
-                  </label>
-                  <button class="ghost-button" data-stage-adjust="sprout" type="button">Justera bild</button>
-                  <button class="ghost-button" data-stage-remove="sprout" type="button">Ta bort bild</button>
-                  <p class="helper-text stage-status" data-stage-status="sprout">Ingen bild kopplad.</p>
-                </section>
-
-                <section class="milestone-card">
-                  <div class="milestone-card__head">
-                    <p class="field-label">Steg 2</p>
-                    <h3>Första blomman</h3>
-                    <p class="helper-text">När första blomman pollineras.</p>
-                  </div>
-
-                  <div class="stage-preview-shell" data-stage-preview-shell="flower">
-                    <img data-stage-preview="flower" class="stage-preview-image" alt="" hidden />
-                    <div class="empty-state" data-stage-empty="flower">Ingen bild uppladdad ännu.</div>
-                  </div>
-
-                  <label class="ghost-button file-button">
-                    <span>Välj bild</span>
-                    <input data-stage-input="flower" type="file" accept="image/*" hidden />
-                  </label>
-                  <button class="ghost-button" data-stage-adjust="flower" type="button">Justera bild</button>
-                  <button class="ghost-button" data-stage-remove="flower" type="button">Ta bort bild</button>
-                  <p class="helper-text stage-status" data-stage-status="flower">Ingen bild kopplad.</p>
-                </section>
-
-                <section class="milestone-card">
-                  <div class="milestone-card__head">
-                    <p class="field-label">Steg 3</p>
-                    <h3>Skördad frukt</h3>
-                    <p class="helper-text">När frukten hänger klar och skördas från plantan.</p>
-                  </div>
-
-                  <div class="stage-preview-shell" data-stage-preview-shell="harvest">
-                    <img data-stage-preview="harvest" class="stage-preview-image" alt="" hidden />
-                    <div class="empty-state" data-stage-empty="harvest">Ingen bild uppladdad ännu.</div>
-                  </div>
-
-                  <label class="ghost-button file-button">
-                    <span>Välj bild</span>
-                    <input data-stage-input="harvest" type="file" accept="image/*" hidden />
-                  </label>
-                  <button class="ghost-button" data-stage-adjust="harvest" type="button">Justera bild</button>
-                  <button class="ghost-button" data-stage-remove="harvest" type="button">Ta bort bild</button>
-                  <p class="helper-text stage-status" data-stage-status="harvest">Ingen bild kopplad.</p>
-                </section>
-              </div>
-            </article>
+                  <tds-card class="tegel-stage-card" header="Skördad frukt">
+                    <div slot="body" class="tegel-stage-card-body">
+                      <div class="tegel-stage-preview" data-stage-preview-shell="harvest">
+                        <img data-stage-preview="harvest" class="stage-preview-image" alt="" hidden />
+                        <div class="empty-state" data-stage-empty="harvest">Ingen bild uppladdad ännu.</div>
+                      </div>
+                      <div class="tegel-stage-footer">
+                        <div class="tegel-stage-actions">
+                          <label class="tegel-file-control"><input data-stage-input="harvest" type="file" accept="image/*" hidden /><tds-button data-stage-upload="harvest" size="sm" text="Välj"></tds-button></label>
+                          <tds-button data-stage-adjust="harvest" size="sm" variant="secondary" text="Justera"></tds-button>
+                          <tds-button data-stage-remove="harvest" size="sm" variant="secondary" text="Ta bort"></tds-button>
+                        </div>
+                      </div>
+                    </div>
+                  </tds-card>
+                </div>
+              </section>
+            </section>
           </div>
         </section>
 
         <section class="view-page" id="measurement-view">
-          <div class="page-grid page-grid--measurement">
-            <article class="panel panel--measurement-entry">
-              <div class="panel-head">
-                <div>
-                  <p class="panel-kicker">Mätning</p>
-                  <h2 id="weigh-panel-title">Ingen deltagare vald</h2>
+          <div class="tegel-page-grid tegel-page-grid--measurement">
+            <section class="tegel-section tegel-measurement-panel">
+              <div class="tegel-section-header tegel-section-header--measurement">
+                <div class="tegel-card-copy">
+                  <h3>Mätning</h3>
+                  <p>Välj deltagare, starta visningen på presentationsskärmen och registrera sedan den nya vikten.</p>
                 </div>
               </div>
-
-              <form class="stack-form" id="weigh-in-form">
-                <label class="field">
-                  <span class="field-label">Sök deltagare</span>
-                  <input
-                    id="measurement-participant-search"
-                    type="search"
-                    inputmode="search"
-                    autocomplete="off"
-                    placeholder="Sök på namn, avdelning eller login"
-                  />
-                </label>
-
-                <label class="field">
-                  <span class="field-label">Välj deltagare</span>
-                  <select id="measurement-participant-select"></select>
-                </label>
-                <p class="helper-text" id="measurement-participant-search-summary">Visar alla deltagare.</p>
-
-                <label class="field">
-                  <span class="field-label">Vikt i kilo</span>
-                  <input
-                    id="weigh-weight"
-                    type="text"
-                    inputmode="decimal"
-                    autocomplete="off"
-                    placeholder="8,450"
-                    required
-                  />
-                </label>
-
-                <div class="button-row">
-                  <button class="ghost-button" id="weigh-start-btn" type="button">Starta</button>
-                  <button class="primary-button" id="weigh-save-btn" type="submit">Uppdatera vikt</button>
-                  <button class="ghost-button ghost-button--danger" id="weigh-delete-btn" type="button">
-                    Ta bort vikt
-                  </button>
-                </div>
-              </form>
-            </article>
-
-            <article class="panel panel--measurement-status">
-              <div class="panel-head">
-                <div>
-                  <p class="panel-kicker">Översikt</p>
-                  <h2>Senaste status</h2>
-                  <p class="helper-text">
-                    Se vald deltagares aktuella vikt, placering och senaste registrering utan att störa själva mätflödet.
-                  </p>
+              <div class="tegel-section-body tegel-stack">
+                <form class="tegel-form-stack" id="weigh-in-form">
+                  <div class="tegel-fields-grid tegel-fields-grid--two tegel-measurement-selection-grid">
+                    <tds-dropdown id="measurement-participant-select" label="Välj deltagare" label-position="outside" placeholder="Välj deltagare"></tds-dropdown>
+                    <tds-text-field id="measurement-participant-search" label="Sök deltagare" label-position="outside"></tds-text-field>
+                  </div>
+                  <p id="measurement-participant-search-summary" class="tegel-supporting-text">Visar alla deltagare.</p>
+                  <div class="tegel-measurement-focus tegel-measurement-focus--inline">
+                    <h3 id="weigh-panel-title">Deltagare: Ingen deltagare vald</h3>
+                  </div>
+                  <tds-text-field id="weigh-weight" label="Vikt i kilo" label-position="outside" placeholder="8,450"></tds-text-field>
+                </form>
+                <p id="weigh-panel-copy" class="tegel-supporting-text">
+                  Starta deltagaren på publikskärmen och lås sedan upp viktinmatningen när det är dags att väga frukten.
+                </p>
+                <p id="weigh-sequence-note" class="tegel-supporting-text tegel-measurement-note">
+                  Tryck Starta för att visa deltagaren stort på presentationsskärmen innan viktinmatningen öppnas.
+                </p>
+                <div class="tegel-action-row tegel-action-row--measurement">
+                  <tds-button id="weigh-start-btn" size="md" variant="secondary" text="Starta" type="button"></tds-button>
+                  <tds-button id="weigh-save-btn" size="md" text="Uppdatera vikt" type="button"></tds-button>
+                  <tds-button id="weigh-delete-btn" size="md" variant="secondary" text="Ta bort vikt" type="button"></tds-button>
                 </div>
               </div>
+            </section>
 
-              <div class="summary-grid summary-grid--measurement">
-                <div class="summary-card">
-                  <span class="summary-label">Aktuell vikt</span>
-                  <strong id="participant-current-weight">-</strong>
-                </div>
-                <div class="summary-card">
-                  <span class="summary-label">Placering</span>
-                  <strong id="participant-current-rank">-</strong>
-                </div>
-                <div class="summary-card">
-                  <span class="summary-label">Senast uppdaterad</span>
-                  <strong id="participant-current-measured-at">-</strong>
-                </div>
-                <div class="summary-card">
-                  <span class="summary-label">Viktstatus</span>
-                  <strong id="participant-current-status">Ej vald</strong>
+            <section class="tegel-section tegel-measurement-status-section">
+              <div class="tegel-section-header">
+                <div class="tegel-card-copy">
+                  <h3>Senaste status</h3>
+                  <p>Aktuell översikt för den deltagare som just nu är vald i mätflödet.</p>
                 </div>
               </div>
-            </article>
+              <div class="tegel-section-body">
+                <div class="tegel-summary-grid tegel-summary-grid--measurement">
+                  <tds-card class="tegel-stat-card" header="Aktuell vikt"><div slot="body" class="tegel-metric-card-content"><strong id="participant-current-weight">-</strong></div></tds-card>
+                  <tds-card class="tegel-stat-card" header="Placering"><div slot="body" class="tegel-metric-card-content"><strong id="participant-current-rank">-</strong></div></tds-card>
+                  <tds-card class="tegel-stat-card" header="Senast uppdaterad"><div slot="body" class="tegel-metric-card-content"><strong id="participant-current-measured-at">-</strong></div></tds-card>
+                  <tds-card class="tegel-stat-card" header="Viktstatus"><div slot="body" class="tegel-metric-card-content"><strong id="participant-current-status">Ej vald</strong></div></tds-card>
+                </div>
+              </div>
+            </section>
           </div>
         </section>
 
         <section class="view-page" id="presenter-view">
-          <div class="page-grid page-grid--presenter">
-            <article class="panel">
-              <div class="panel-head">
-                <div>
-                  <p class="panel-kicker">Live-kontroll</p>
-                  <h2>Styr presentationsskärmen</h2>
+          <div class="tegel-page-grid tegel-page-grid--presenter">
+            <section class="tegel-section tegel-presenter-panel">
+              <div class="tegel-section-header">
+                <div class="tegel-card-copy">
+                  <h3>Presentation</h3>
+                  <p>Styr publikskärmen, välj spotlightdeltagare och växla mellan scoreboard och deltagarpresentation.</p>
                 </div>
               </div>
-
-              <div class="presentation-toggle-row">
-                <button class="toggle-button" id="present-mode-board" type="button">Scoreboard</button>
-                <button class="toggle-button" id="present-mode-spotlight" type="button">Deltagarpresentation</button>
-              </div>
-
-              <div class="presenter-grid">
-                <label class="field">
-                  <span class="field-label">Deltagare i spotlight</span>
-                  <select id="present-participant"></select>
-                </label>
-
-                <label class="field">
-                  <span class="field-label">Växlingsintervall</span>
-                  <select id="present-interval">
-                    <option value="6">6 sekunder</option>
-                    <option value="8">8 sekunder</option>
-                    <option value="10">10 sekunder</option>
-                    <option value="12">12 sekunder</option>
-                    <option value="15">15 sekunder</option>
-                  </select>
-                </label>
-              </div>
-
-              <div class="button-row">
-                <button class="ghost-button" id="present-prev-btn" type="button">Föregående</button>
-                <button class="ghost-button" id="present-next-btn" type="button">Nästa</button>
-                <button class="ghost-button" id="present-autoplay-btn" type="button">Auto av</button>
-                <button class="primary-button" id="present-open-display-btn" type="button">Öppna presentationsskärm</button>
-              </div>
-            </article>
-
-            <article class="panel">
-              <div class="panel-head">
-                <div>
-                  <p class="panel-kicker">Förhandsinfo</p>
-                  <h2>Det som visas nu</h2>
+              <div class="tegel-section-body tegel-stack tegel-stack--presenter">
+                <div class="tegel-presenter-group">
+                  <span class="tegel-eyebrow">Visningsläge</span>
+                  <div class="tegel-action-row tegel-action-row--presenter-mode">
+                    <tds-button id="present-mode-board" size="md" text="Scoreboard"></tds-button>
+                    <tds-button id="present-mode-spotlight" size="md" variant="secondary" text="Deltagarpresentation"></tds-button>
+                  </div>
+                </div>
+                <div class="tegel-presenter-group">
+                  <span class="tegel-eyebrow">Spotlight</span>
+                  <div class="tegel-fields-grid tegel-fields-grid--two tegel-fields-grid--presenter">
+                    <tds-dropdown id="present-participant" label="Deltagare i spotlight" label-position="outside" placeholder="Välj deltagare"></tds-dropdown>
+                    <tds-dropdown id="present-interval" label="Växlingsintervall" label-position="outside" placeholder="Välj intervall">
+                      <tds-dropdown-option value="6">6 sekunder</tds-dropdown-option>
+                      <tds-dropdown-option value="8">8 sekunder</tds-dropdown-option>
+                      <tds-dropdown-option value="10">10 sekunder</tds-dropdown-option>
+                      <tds-dropdown-option value="12">12 sekunder</tds-dropdown-option>
+                      <tds-dropdown-option value="15">15 sekunder</tds-dropdown-option>
+                    </tds-dropdown>
+                  </div>
+                </div>
+                <div class="tegel-presenter-group">
+                  <span class="tegel-eyebrow">Styrning</span>
+                  <div class="tegel-action-row tegel-action-row--presenter-controls">
+                    <tds-button id="present-prev-btn" size="md" variant="secondary" text="Föregående"></tds-button>
+                    <tds-button id="present-next-btn" size="md" variant="secondary" text="Nästa"></tds-button>
+                    <tds-button id="present-autoplay-btn" size="md" variant="secondary" text="Auto av"></tds-button>
+                    <tds-button id="present-open-display-btn" size="md" text="Öppna presentationsskärm"></tds-button>
+                  </div>
+                  <p class="tegel-supporting-text tegel-presenter-note">
+                    Öppna publikskärmen på den externa skärmen och styr sedan visningen härifrån.
+                  </p>
                 </div>
               </div>
-
-              <div class="presenter-summary">
-                <div class="summary-card">
-                  <span class="summary-label">Läge</span>
-                  <strong id="present-current-mode">Scoreboard</strong>
-                </div>
-                <div class="summary-card">
-                  <span class="summary-label">Aktuell deltagare</span>
-                  <strong id="present-current-participant">-</strong>
-                </div>
-                <div class="summary-card">
-                  <span class="summary-label">Auto</span>
-                  <strong id="present-current-autoplay">Av</strong>
-                </div>
-                <div class="summary-card">
-                  <span class="summary-label">Skärm</span>
-                  <strong id="present-current-screen">Redo</strong>
-                </div>
-              </div>
-
-              <div class="note-card" id="present-current-copy">
-                Scoreboarden visas live. Byt till deltagarpresentation för att lyfta en person i taget med bilder.
-              </div>
-            </article>
+            </section>
           </div>
         </section>
       </main>
     </div>
 
-    <dialog class="modal-dialog" id="participant-create-dialog" aria-labelledby="participant-create-title">
-      <form class="modal-surface stack-form" id="participant-create-form">
-        <div class="modal-header">
-          <div>
-            <p class="panel-kicker">Ny deltagare</p>
-            <h2 id="participant-create-title">Lägg till</h2>
+    <tds-modal id="participant-create-dialog" header="Lägg till deltagare" size="sm" closable>
+      <form class="tegel-modal-body" id="participant-create-form" slot="body">
+        <tds-text-field id="participant-create-name" label="Namn och efternamn" label-position="outside"></tds-text-field>
+        <tds-text-field id="participant-create-team" label="Avdelning" label-position="outside"></tds-text-field>
+      </form>
+      <div slot="actions" class="tegel-modal-actions">
+        <tds-button id="participant-create-save-btn" size="md" text="Lägg till deltagare" type="submit" form="participant-create-form"></tds-button>
+        <tds-button id="participant-create-cancel-btn" size="md" variant="secondary" text="Avbryt" type="button"></tds-button>
+      </div>
+    </tds-modal>
+
+    <tds-modal id="image-adjust-dialog" header="Bildjustering" size="md" closable>
+      <div slot="body" class="tegel-modal-body">
+        <p class="tegel-modal-copy" id="image-adjust-copy">Justera bilden så att samma utsnitt används i alla bildkort.</p>
+        <div class="tegel-image-adjust-layout">
+          <div class="tegel-stack">
+            <p class="is-hidden" aria-hidden="true">Bildyta</p>
+            <div class="tegel-image-preview image-adjust-preview-shell image-adjust-preview-shell--workspace">
+              <img id="image-adjust-preview" class="image-adjust-preview-image image-adjust-preview-image--workspace" alt="" hidden />
+              <div class="empty-state" id="image-adjust-empty">Ingen bild vald.</div>
+            </div>
+          </div>
+          <div class="tegel-slider-stack">
+            <tds-slider id="image-adjust-scale" label="Zoom" min="1" max="2.5" step="0.01" value="1"></tds-slider>
+            <tds-slider id="image-adjust-offset-x" label="Flytta sidled" min="-35" max="35" step="1" value="0"></tds-slider>
+            <tds-slider id="image-adjust-offset-y" label="Flytta höjdled" min="-35" max="35" step="1" value="0"></tds-slider>
           </div>
         </div>
+      </div>
+      <div slot="actions" class="tegel-modal-actions">
+        <tds-button id="image-adjust-save-btn" size="sm" text="Spara utsnitt" type="button"></tds-button>
+        <tds-button id="image-adjust-cancel-btn" size="sm" variant="secondary" text="Avbryt" type="button"></tds-button>
+      </div>
+    </tds-modal>
 
-        <label class="field">
-          <span class="field-label">Namn och efternamn</span>
-          <input id="participant-create-name" type="text" maxlength="80" placeholder="Anna Andersson" required />
-        </label>
-
-        <label class="field">
-          <span class="field-label">Avdelning</span>
-          <input id="participant-create-team" type="text" maxlength="80" placeholder="Produktion" />
-        </label>
-
-        <div class="button-row">
-          <button class="primary-button" type="submit">Lägg till deltagare</button>
-          <button class="ghost-button" id="participant-create-cancel-btn" type="button">Avbryt</button>
-        </div>
-      </form>
-    </dialog>
 
     <div class="display-shell" id="display-shell">
+      <div class="display-background" aria-hidden="true">
+        <video class="display-background__video" autoplay muted loop playsinline>
+          <source src="assets/Scania_Event_BackgroundGraphics_Loop_1080p.mp4" type="video/mp4" />
+        </video>
+      </div>
       <section class="display-screen display-screen--board" id="display-board">
         <header class="display-header display-header--centered">
           <h1 id="display-event-name">Odlingskampen</h1>
@@ -499,13 +371,9 @@
         <div class="display-board__frame" id="display-board-frame">
           <div class="board-sequence-layer" id="board-sequence-layer" hidden aria-hidden="true">
             <article class="board-sequence-card" id="board-sequence-card">
-              <div class="board-sequence-card__rank" id="board-sequence-rank">-</div>
               <div class="board-sequence-card__copy">
-                <div class="board-sequence-card__name-wrap">
-                  <h2 id="board-sequence-name">Ingen deltagare</h2>
-                </div>
+                <h2 id="board-sequence-name">Ingen deltagare</h2>
                 <p class="board-sequence-card__team" id="board-sequence-team">-</p>
-                <p class="board-sequence-card__movement" id="board-sequence-movement">Registrerad</p>
               </div>
               <div class="board-sequence-card__gallery" id="board-sequence-gallery" hidden></div>
               <div class="board-sequence-card__weight" id="board-sequence-weight">
@@ -514,7 +382,9 @@
               </div>
             </article>
           </div>
-          <div class="scoreboard-list" id="scoreboard-list"></div>
+            <div class="scoreboard-list" id="scoreboard-list">
+              <tds-message variant="information" minimal no-icon>Inga deltagare än.</tds-message>
+            </div>
         </div>
       </section>
 
@@ -544,61 +414,19 @@
               </div>
             </div>
 
-            <div class="spotlight-gallery" id="spotlight-gallery"></div>
+            <div class="spotlight-gallery" id="spotlight-gallery">
+              <tds-message variant="information" minimal no-icon>Inga bilder att visa.</tds-message>
+            </div>
           </div>
         </div>
       </section>
     </div>
-
-    <dialog class="modal-dialog image-adjust-dialog" id="image-adjust-dialog">
-      <div class="modal-surface image-adjust-surface">
-        <div class="modal-header">
-          <div>
-            <p class="panel-kicker">Bildjustering</p>
-            <h2 id="image-adjust-title">Justera bild</h2>
-          </div>
-        </div>
-        <div class="image-adjust-layout">
-          <div class="image-adjust-workspace">
-            <p class="field-label image-adjust-preview-label">Bildyta</p>
-            <div class="image-adjust-preview-shell image-adjust-preview-shell--workspace">
-              <img id="image-adjust-preview" class="image-adjust-preview-image image-adjust-preview-image--workspace" alt="" hidden />
-              <div class="empty-state" id="image-adjust-empty">Ingen bild vald.</div>
-            </div>
-          </div>
-          <div class="image-adjust-controls">
-            <label class="field">
-              <span class="field-label">Zoom</span>
-              <input id="image-adjust-scale" type="range" min="1" max="2.5" step="0.01" />
-            </label>
-            <label class="field">
-              <span class="field-label">Flytta sidled</span>
-              <input id="image-adjust-offset-x" type="range" min="-35" max="35" step="1" />
-            </label>
-            <label class="field">
-              <span class="field-label">Flytta höjdled</span>
-              <input id="image-adjust-offset-y" type="range" min="-35" max="35" step="1" />
-            </label>
-            <div class="image-adjust-result-card">
-              <p class="field-label image-adjust-preview-label">Samma utsnitt överallt</p>
-              <div class="image-adjust-preview-shell image-adjust-preview-shell--result">
-                <img id="image-adjust-result-preview" class="image-adjust-preview-image image-adjust-preview-image--result" alt="" hidden />
-              </div>
-            </div>
-          </div>
-        </div>
-        <div class="button-row">
-          <button class="ghost-button" id="image-adjust-cancel-btn" type="button">Avbryt</button>
-          <button class="primary-button" id="image-adjust-save-btn" type="button">Spara utsnitt</button>
-        </div>
-      </div>
-    </dialog>
 
     <script type="module">
       import { defineCustomElements } from "https://cdn.jsdelivr.net/npm/@scania/tegel@1.50.0/loader/index.es2017.js";
 
       defineCustomElements(window);
     </script>
-  <script src="app.js?v=20260411-rules-113"></script>
+    <script src="app.js?v=20260415-board-sequence-rebuild-09"></script>
   </body>
 </html>
