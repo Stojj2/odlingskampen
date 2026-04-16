@@ -9,11 +9,11 @@
       if ((new URLSearchParams(window.location.search).get("view") || "operator") === "board") {
         const boardStyles = document.createElement("link");
         boardStyles.rel = "stylesheet";
-    boardStyles.href = "styles.css?v=20260415-sequence-clean-card-01";
+    boardStyles.href = "styles.css?v=20260416-presentation-background-02";
         document.head.appendChild(boardStyles);
       }
     </script>
-  <link rel="stylesheet" href="tegel-ui.css?v=20260415-display-shell-01" />
+  <link rel="stylesheet" href="tegel-ui.css?v=20260416-presentation-background-02" />
   </head>
   <body class="scania tds-mode-light tegel-page">
     <tds-header class="tegel-app-header">
@@ -286,21 +286,42 @@
                     <tds-button id="present-mode-spotlight" size="md" variant="secondary" text="Deltagarpresentation"></tds-button>
                   </div>
                 </div>
-                <div class="tegel-presenter-group">
-                  <span class="tegel-eyebrow">Spotlight</span>
-                  <div class="tegel-fields-grid tegel-fields-grid--two tegel-fields-grid--presenter">
-                    <tds-dropdown id="present-participant" label="Deltagare i spotlight" label-position="outside" placeholder="Välj deltagare"></tds-dropdown>
-                    <tds-dropdown id="present-interval" label="Växlingsintervall" label-position="outside" placeholder="Välj intervall">
+                  <div class="tegel-presenter-group">
+                    <span class="tegel-eyebrow">Spotlight</span>
+                    <div class="tegel-fields-grid tegel-fields-grid--two tegel-fields-grid--presenter">
+                      <tds-dropdown id="present-participant" label="Deltagare i spotlight" label-position="outside" placeholder="Välj deltagare"></tds-dropdown>
+                      <tds-dropdown id="present-interval" label="Växlingsintervall" label-position="outside" placeholder="Välj intervall">
                       <tds-dropdown-option value="6">6 sekunder</tds-dropdown-option>
                       <tds-dropdown-option value="8">8 sekunder</tds-dropdown-option>
                       <tds-dropdown-option value="10">10 sekunder</tds-dropdown-option>
                       <tds-dropdown-option value="12">12 sekunder</tds-dropdown-option>
-                      <tds-dropdown-option value="15">15 sekunder</tds-dropdown-option>
-                    </tds-dropdown>
+                        <tds-dropdown-option value="15">15 sekunder</tds-dropdown-option>
+                      </tds-dropdown>
+                    </div>
                   </div>
-                </div>
-                <div class="tegel-presenter-group">
-                  <span class="tegel-eyebrow">Styrning</span>
+                  <div class="tegel-presenter-group">
+                    <span class="tegel-eyebrow">Bakgrund</span>
+                    <div class="tegel-action-row tegel-action-row--presenter-background">
+                      <tds-button id="present-background-color" size="md" text="Scania-blå"></tds-button>
+                      <tds-button id="present-background-video" size="md" variant="secondary" text="Video"></tds-button>
+                    </div>
+                    <div class="tegel-action-row tegel-action-row--presenter-background">
+                      <tds-button id="present-background-upload-btn" size="md" variant="secondary" text="Ladda upp video"></tds-button>
+                      <tds-button id="present-background-clear-btn" size="md" variant="secondary" text="Ta bort video"></tds-button>
+                    </div>
+                    <input id="present-background-video-input" type="file" accept="video/mp4,video/webm" hidden />
+                    <div class="tegel-upload-progress" id="present-background-progress" hidden aria-live="polite">
+                      <div class="tegel-upload-progress__track">
+                        <div class="tegel-upload-progress__bar" id="present-background-progress-bar"></div>
+                      </div>
+                      <p class="tegel-supporting-text tegel-presenter-note" id="present-background-progress-text"></p>
+                    </div>
+                    <p class="tegel-supporting-text tegel-presenter-note" id="present-background-status">
+                      Ingen videofil uppladdad. Publikskärmen använder Scania-blå bakgrund.
+                    </p>
+                  </div>
+                  <div class="tegel-presenter-group">
+                    <span class="tegel-eyebrow">Styrning</span>
                   <div class="tegel-action-row tegel-action-row--presenter-controls">
                     <tds-button id="present-prev-btn" size="md" variant="secondary" text="Föregående"></tds-button>
                     <tds-button id="present-next-btn" size="md" variant="secondary" text="Nästa"></tds-button>
@@ -355,10 +376,8 @@
 
 
     <div class="display-shell" id="display-shell">
-      <div class="display-background" aria-hidden="true">
-        <video class="display-background__video" autoplay muted loop playsinline>
-          <source src="assets/Scania_Event_BackgroundGraphics_Loop_1080p.mp4" type="video/mp4" />
-        </video>
+      <div class="display-background" id="display-background" aria-hidden="true" hidden>
+        <video class="display-background__video" id="display-background-video" autoplay muted loop playsinline></video>
       </div>
       <section class="display-screen display-screen--board" id="display-board">
         <header class="display-header display-header--centered">
@@ -427,6 +446,6 @@
 
       defineCustomElements(window);
     </script>
-    <script src="app.js?v=20260415-board-sequence-rebuild-09"></script>
+    <script src="app.js?v=20260416-media-preload-01"></script>
   </body>
 </html>

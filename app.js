@@ -98,6 +98,7 @@ const runtime = {
   measurementSearchQuery: "",
   measurementUnlockedParticipantId: "",
   dropdownStabilizerHandle: null,
+  mediaPreloadCache: new Map(),
 };
 
 let state = createDefaultState();
@@ -221,6 +222,15 @@ function cacheDom() {
   dom.presentModeSpotlight = document.getElementById("present-mode-spotlight");
   dom.presentParticipant = document.getElementById("present-participant");
   dom.presentInterval = document.getElementById("present-interval");
+  dom.presentBackgroundColor = document.getElementById("present-background-color");
+  dom.presentBackgroundVideo = document.getElementById("present-background-video");
+  dom.presentBackgroundUploadButton = document.getElementById("present-background-upload-btn");
+  dom.presentBackgroundClearButton = document.getElementById("present-background-clear-btn");
+  dom.presentBackgroundVideoInput = document.getElementById("present-background-video-input");
+  dom.presentBackgroundProgress = document.getElementById("present-background-progress");
+  dom.presentBackgroundProgressBar = document.getElementById("present-background-progress-bar");
+  dom.presentBackgroundProgressText = document.getElementById("present-background-progress-text");
+  dom.presentBackgroundStatus = document.getElementById("present-background-status");
   dom.presentPrevButton = document.getElementById("present-prev-btn");
   dom.presentNextButton = document.getElementById("present-next-btn");
   dom.presentAutoplayButton = document.getElementById("present-autoplay-btn");
@@ -234,6 +244,8 @@ function cacheDom() {
   dom.displayBoard = document.getElementById("display-board");
   dom.displayBoardFrame = document.getElementById("display-board-frame");
   dom.displaySpotlight = document.getElementById("display-spotlight");
+  dom.displayBackground = document.getElementById("display-background");
+  dom.displayBackgroundVideo = document.getElementById("display-background-video");
   dom.displayEventName = document.getElementById("display-event-name");
   dom.displayEventSubtitle = document.getElementById("display-event-subtitle");
   dom.scoreboardList = document.getElementById("scoreboard-list");
@@ -642,6 +654,11 @@ function bindEvents() {
       render();
     }
 
+    const selectedParticipant = getSelectedParticipant();
+    if (selectedParticipant) {
+      void preloadParticipantImages(selectedParticipant);
+    }
+
     window.setTimeout(() => closeDropdownElement(dom.measurementParticipantSelect), 0);
   });
 
@@ -850,6 +867,7 @@ function bindEvents() {
 
     runtime.measurementUnlockedParticipantId = selectedParticipant.id;
     closeDropdownElement(dom.measurementParticipantSelect);
+    await preloadParticipantImages(selectedParticipant);
     const nextState = startParticipantWeighInShowcase(state, selectedParticipant.id);
     await persistState(nextState);
     notify(`${selectedParticipant.name} visas nu på presentationsskärmen. Mata in vikten när ni är redo.`);
@@ -890,6 +908,79 @@ function bindEvents() {
 
   dom.presentModeSpotlight.addEventListener("click", async () => {
     await setPresentationMode("spotlight", getPreferredSpotlightParticipantId());
+  });
+
+  dom.presentBackgroundColor?.addEventListener("click", async () => {
+    await persistState({
+      ...state,
+      presentation: {
+        ...state.presentation,
+        backgroundMode: "color",
+      },
+    });
+  });
+
+  dom.presentBackgroundVideo?.addEventListener("click", async () => {
+    await persistState({
+      ...state,
+      presentation: {
+        ...state.presentation,
+        backgroundMode: "video",
+      },
+    });
+  });
+
+  dom.presentBackgroundUploadButton?.addEventListener("click", () => {
+    dom.presentBackgroundVideoInput?.click();
+  });
+
+  dom.presentBackgroundClearButton?.addEventListener("click", async () => {
+    await persistState({
+      ...state,
+      presentation: {
+        ...state.presentation,
+        backgroundMode: "color",
+        backgroundVideoPath: "",
+      },
+    });
+    if (dom.presentBackgroundVideoInput) {
+      dom.presentBackgroundVideoInput.value = "";
+    }
+    notify("Videobakgrunden är borttagen. Publikskärmen använder nu Scania-blå bakgrund.");
+  });
+
+  dom.presentBackgroundVideoInput?.addEventListener("change", async () => {
+    const [file] = Array.from(dom.presentBackgroundVideoInput.files || []);
+    if (!file) {
+      return;
+    }
+
+    try {
+      const videoPath = await uploadPresentationBackgroundVideo(file);
+      await persistState({
+        ...state,
+        presentation: {
+          ...state.presentation,
+          backgroundMode: "video",
+          backgroundVideoPath: videoPath,
+        },
+      });
+      notify(`Videobakgrund sparad: ${file.name}`);
+    } catch (error) {
+      console.warn("Videouppladdningen misslyckades.", error);
+      notify("Det gick inte att ladda upp videon.");
+    } finally {
+      window.setTimeout(() => {
+        clearPresentationBackgroundUploadProgress();
+      }, 1200);
+      dom.presentBackgroundVideoInput.value = "";
+    }
+  });
+
+  dom.displayBackgroundVideo?.addEventListener("error", () => {
+    if (dom.displayBackground) {
+      dom.displayBackground.hidden = true;
+    }
   });
 
   bindControlEvents(dom.presentParticipant, async () => {
@@ -1504,9 +1595,15 @@ function renderWeighInSection() {
 function renderPresenter() {
   const spotlightState = getSpotlightState(state, standings);
   const currentEntry = spotlightState.currentEntry;
+  const presentationBackground = state.presentation.backgroundMode === "video" ? "video" : "color";
+  const backgroundVideoName = state.presentation.backgroundVideoPath
+    ? decodeURIComponent(state.presentation.backgroundVideoPath.split("/").pop() || "")
+    : "";
 
   setToggleState(dom.presentModeBoard, state.presentation.mode === "board");
   setToggleState(dom.presentModeSpotlight, state.presentation.mode === "spotlight");
+  setToggleState(dom.presentBackgroundColor, presentationBackground === "color");
+  setToggleState(dom.presentBackgroundVideo, presentationBackground === "video");
 
   renderSelectOptions(
     dom.presentParticipant,
@@ -1524,6 +1621,19 @@ function renderPresenter() {
   dom.presentNextButton.disabled = spotlightState.eligibleEntries.length < 2;
   dom.presentAutoplayButton.disabled = !spotlightState.eligibleEntries.length;
   dom.presentAutoplayButton.setAttribute("text", state.presentation.spotlightAutoplay ? "Auto på" : "Auto av");
+  if (dom.presentBackgroundStatus) {
+    dom.presentBackgroundStatus.textContent = state.presentation.backgroundVideoPath
+      ? `Aktiv videofil: ${backgroundVideoName || "uppladdad video"}`
+      : presentationBackground === "video"
+        ? "Videoläge är valt men ingen videofil är uppladdad ännu."
+        : "Ingen videofil uppladdad. Publikskärmen använder Scania-blå bakgrund.";
+  }
+  if (dom.presentBackgroundProgress?.hidden && dom.presentBackgroundProgressText) {
+    dom.presentBackgroundProgressText.textContent = "";
+  }
+  if (dom.presentBackgroundClearButton) {
+    dom.presentBackgroundClearButton.disabled = !state.presentation.backgroundVideoPath;
+  }
   if (dom.presentCurrentMode) {
     dom.presentCurrentMode.textContent = getModeLabel(state.presentation.mode);
   }
@@ -1541,12 +1651,38 @@ function renderPresenter() {
   }
 }
 
+function setPresentationBackgroundUploadProgress(percent, message = "") {
+  if (dom.presentBackgroundProgress) {
+    dom.presentBackgroundProgress.hidden = false;
+  }
+  if (dom.presentBackgroundProgressBar) {
+    const safePercent = Math.max(0, Math.min(100, Math.round(percent)));
+    dom.presentBackgroundProgressBar.style.width = `${safePercent}%`;
+  }
+  if (dom.presentBackgroundProgressText && message) {
+    dom.presentBackgroundProgressText.textContent = message;
+  }
+}
+
+function clearPresentationBackgroundUploadProgress() {
+  if (dom.presentBackgroundProgress) {
+    dom.presentBackgroundProgress.hidden = true;
+  }
+  if (dom.presentBackgroundProgressBar) {
+    dom.presentBackgroundProgressBar.style.width = "0%";
+  }
+  if (dom.presentBackgroundProgressText) {
+    dom.presentBackgroundProgressText.textContent = "";
+  }
+}
+
 function renderDisplay(force = false) {
   const spotlightState = getSpotlightState(state, standings);
   const showSpotlight = state.presentation.mode === "spotlight";
 
   dom.displayBoard.hidden = showSpotlight;
   dom.displaySpotlight.hidden = !showSpotlight;
+  renderDisplayBackground();
   dom.displayEventName.textContent = state.eventName;
   dom.displayEventSubtitle.textContent = state.eventSubtitle;
   dom.spotlightEventName.textContent = state.eventName;
@@ -2638,6 +2774,33 @@ function clearDeferredBoardStateFlush() {
   }
 }
 
+function renderDisplayBackground() {
+  if (!dom.displayBackground || !dom.displayBackgroundVideo) {
+    return;
+  }
+
+  const shouldUseVideo = state.presentation.backgroundMode === "video" && Boolean(state.presentation.backgroundVideoPath);
+  if (!shouldUseVideo) {
+    dom.displayBackground.hidden = true;
+    dom.displayBackgroundVideo.removeAttribute("src");
+    dom.displayBackgroundVideo.load();
+    return;
+  }
+
+  const expectedSrc = state.presentation.backgroundVideoPath;
+  if (dom.displayBackgroundVideo.getAttribute("src") !== expectedSrc) {
+    dom.displayBackgroundVideo.setAttribute("src", expectedSrc);
+    dom.displayBackgroundVideo.load();
+  }
+  dom.displayBackground.hidden = false;
+  const playAttempt = dom.displayBackgroundVideo.play?.();
+  if (playAttempt && typeof playAttempt.catch === "function") {
+    playAttempt.catch(() => {
+      dom.displayBackground.hidden = true;
+    });
+  }
+}
+
 function scheduleDeferredBoardStateFlush() {
   clearDeferredBoardStateFlush();
 
@@ -3241,6 +3404,61 @@ async function storeParticipantStageImage(file, participantId, stageKey) {
   return sanitizeImagePath(payload.path);
 }
 
+async function uploadPresentationBackgroundVideo(file) {
+  if (!file) {
+    throw new Error("No video file provided.");
+  }
+
+  if (!isHttpMode()) {
+    return URL.createObjectURL(file);
+  }
+
+  return await new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    const formData = new FormData();
+    formData.append("file", file);
+
+    xhr.open("POST", "/api/upload-video");
+    xhr.responseType = "json";
+
+    xhr.upload.addEventListener("progress", (event) => {
+      if (!event.lengthComputable) {
+        setPresentationBackgroundUploadProgress(10, `Laddar upp ${file.name}...`);
+        return;
+      }
+      const percent = (event.loaded / event.total) * 100;
+      setPresentationBackgroundUploadProgress(percent, `Laddar upp ${file.name}: ${Math.round(percent)} %`);
+    });
+
+    xhr.addEventListener("load", () => {
+      if (xhr.status === 401) {
+        redirectToLogin();
+        reject(new Error("Unauthorized"));
+        return;
+      }
+      if (xhr.status < 200 || xhr.status >= 300) {
+        reject(new Error(`Status ${xhr.status}`));
+        return;
+      }
+
+      const payload = xhr.response && typeof xhr.response === "object" ? xhr.response : JSON.parse(xhr.responseText || "{}");
+      setPresentationBackgroundUploadProgress(100, `Videon ${file.name} är uppladdad.`);
+      resolve(typeof payload.path === "string" ? payload.path : "");
+    });
+
+    xhr.addEventListener("error", () => {
+      reject(new Error("Upload failed"));
+    });
+
+    xhr.addEventListener("abort", () => {
+      reject(new Error("Upload aborted"));
+    });
+
+    setPresentationBackgroundUploadProgress(0, `Startar uppladdning av ${file.name}...`);
+    xhr.send(formData);
+  });
+}
+
 async function persistParticipantPassword(participantId, password) {
   if (!isHttpMode()) {
     throw new Error("Password updates require server mode.");
@@ -3404,14 +3622,16 @@ function createDefaultState() {
     eventRules: "",
     participants: [],
     weighIns: [],
-    presentation: {
-      mode: "board",
-      spotlightParticipantId: "",
-      spotlightAutoplay: true,
-      spotlightIntervalSec: 8,
-      spotlightAnchorAt: utcNowIso(),
-      weighInShowcase: createEmptyWeighInShowcase(),
-    },
+      presentation: {
+        mode: "board",
+        spotlightParticipantId: "",
+        spotlightAutoplay: true,
+        spotlightIntervalSec: 8,
+        spotlightAnchorAt: utcNowIso(),
+        backgroundMode: "color",
+        backgroundVideoPath: "",
+        weighInShowcase: createEmptyWeighInShowcase(),
+      },
     updatedAt: "1970-01-01T00:00:00.000Z",
   });
 }
@@ -3587,6 +3807,8 @@ function normalizePresentation(rawPresentation, participants) {
     spotlightAutoplay: sanitizeBoolean(input.spotlightAutoplay, true),
     spotlightIntervalSec: sanitizeInterval(input.spotlightIntervalSec),
     spotlightAnchorAt: sanitizeTimestamp(input.spotlightAnchorAt) || utcNowIso(),
+    backgroundMode: input.backgroundMode === "video" ? "video" : "color",
+    backgroundVideoPath: sanitizeMediaPath(input.backgroundVideoPath),
     weighInShowcase: normalizeWeighInShowcase(input.weighInShowcase, participants),
   };
 }
@@ -3718,6 +3940,50 @@ function normalizeParticipantImages(rawImages) {
 
 function hasParticipantImage(rawImage) {
   return Boolean(normalizeParticipantImage(rawImage).path);
+}
+
+function getParticipantImagePaths(participant) {
+  if (!participant || typeof participant !== "object") {
+    return [];
+  }
+
+  const images = normalizeParticipantImages(participant.images);
+  return PARTICIPANT_IMAGE_STAGES.map((stage) => normalizeParticipantImage(images[stage.key]).path).filter(Boolean);
+}
+
+function preloadMediaPath(path) {
+  const normalizedPath = sanitizeImagePath(path);
+  if (!normalizedPath) {
+    return Promise.resolve();
+  }
+
+  const cachedPromise = runtime.mediaPreloadCache.get(normalizedPath);
+  if (cachedPromise) {
+    return cachedPromise;
+  }
+
+  const preloadPromise = new Promise((resolve) => {
+    const image = new Image();
+    image.decoding = "async";
+    image.onload = () => resolve(normalizedPath);
+    image.onerror = () => resolve(normalizedPath);
+    image.src = normalizedPath;
+    if (image.complete) {
+      resolve(normalizedPath);
+    }
+  });
+
+  runtime.mediaPreloadCache.set(normalizedPath, preloadPromise);
+  return preloadPromise;
+}
+
+async function preloadParticipantImages(participant) {
+  const imagePaths = getParticipantImagePaths(participant);
+  if (!imagePaths.length) {
+    return;
+  }
+
+  await Promise.all(imagePaths.map((path) => preloadMediaPath(path)));
 }
 
 function getParticipantImageSignature(rawImage) {
@@ -4021,6 +4287,15 @@ function sanitizeImagePath(value) {
   const trimmed = value.trim();
   if (!trimmed) return "";
   if (trimmed.startsWith("data:image/")) return trimmed;
+  if (trimmed.startsWith("/uploads/")) return trimmed;
+  if (trimmed.startsWith("uploads/")) return `/${trimmed}`;
+  return "";
+}
+
+function sanitizeMediaPath(value) {
+  if (typeof value !== "string") return "";
+  const trimmed = value.trim();
+  if (!trimmed) return "";
   if (trimmed.startsWith("/uploads/")) return trimmed;
   if (trimmed.startsWith("uploads/")) return `/${trimmed}`;
   return "";

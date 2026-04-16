@@ -3,9 +3,11 @@ from __future__ import annotations
 import argparse
 import base64
 import binascii
+import cgi
 import getpass
 import hashlib
 import hmac
+import io
 import json
 import re
 import secrets
@@ -39,6 +41,10 @@ IMAGE_EXTENSIONS = {
     "image/webp": ".webp",
     "image/gif": ".gif",
     "image/avif": ".avif",
+}
+VIDEO_EXTENSIONS = {
+    "video/mp4": ".mp4",
+    "video/webm": ".webm",
 }
 PUBLIC_STATIC_EXTENSIONS = {
     ".css",
@@ -140,6 +146,8 @@ def default_competition(
             "spotlightAutoplay": True,
             "spotlightIntervalSec": 8,
             "spotlightAnchorAt": timestamp,
+            "backgroundMode": "color",
+            "backgroundVideoPath": "",
             "weighInShowcase": {
                 "token": "",
                 "participantId": "",
@@ -340,14 +348,37 @@ def sanitize_presentation(value: object, participant_ids: list[str]) -> dict:
     if spotlight_participant_id not in participant_ids:
         spotlight_participant_id = participant_ids[0] if participant_ids else ""
     weigh_in_showcase = sanitize_weigh_in_showcase(presentation.get("weighInShowcase"), participant_ids)
+    background_mode = "video" if presentation.get("backgroundMode") == "video" else "color"
+    background_video_path = sanitize_media_path(presentation.get("backgroundVideoPath"))
+    if not background_video_path:
+        background_mode = "color"
     return {
         "mode": "spotlight" if presentation.get("mode") == "spotlight" else "board",
         "spotlightParticipantId": spotlight_participant_id,
         "spotlightAutoplay": sanitize_bool(presentation.get("spotlightAutoplay"), True),
         "spotlightIntervalSec": sanitize_interval(presentation.get("spotlightIntervalSec")),
         "spotlightAnchorAt": sanitize_timestamp(presentation.get("spotlightAnchorAt")) or utc_now_iso(),
+        "backgroundMode": background_mode,
+        "backgroundVideoPath": background_video_path,
         "weighInShowcase": weigh_in_showcase,
     }
+
+
+def sanitize_media_path(value: object) -> str:
+    if not isinstance(value, str):
+        return ""
+    candidate = value.strip()
+    if not candidate.startswith("/uploads/"):
+        return ""
+    try:
+        resolved = (BASE_DIR / candidate.lstrip("/")).resolve()
+    except OSError:
+        return ""
+    try:
+        resolved.relative_to(UPLOADS_DIR.resolve())
+    except ValueError:
+        return ""
+    return candidate
 
 
 def sanitize_weigh_in_showcase(value: object, participant_ids: list[str]) -> dict:
@@ -586,6 +617,27 @@ def store_uploaded_image(payload: object, allowed_participant_id: str = "") -> d
     file_name = f"{stage_key}_{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S%f')}{extension}"
     file_path = participant_dir / file_name
     file_path.write_bytes(image_bytes)
+    relative_path = file_path.relative_to(BASE_DIR).as_posix()
+    return {"path": f"/{relative_path}"}
+
+
+def store_uploaded_video(file_name: str, mime_type: str, video_bytes: bytes) -> dict:
+    safe_name = sanitize_text(Path(file_name).stem, 80) or "presentation-background"
+    clean_mime_type = sanitize_text(mime_type, 80).lower()
+    extension = VIDEO_EXTENSIONS.get(clean_mime_type)
+    if extension is None:
+        guessed_extension = Path(file_name).suffix.lower()
+        extension = guessed_extension if guessed_extension in {".mp4", ".webm"} else ""
+    if extension not in {".mp4", ".webm"}:
+        raise ValueError("Only MP4 and WebM videos are supported.")
+    if not video_bytes:
+        raise ValueError("Empty video payload.")
+
+    presentation_dir = UPLOADS_DIR / "presentation"
+    presentation_dir.mkdir(parents=True, exist_ok=True)
+    timestamp = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S%f")
+    file_path = presentation_dir / f"{safe_name}-{timestamp}{extension}"
+    file_path.write_bytes(video_bytes)
     relative_path = file_path.relative_to(BASE_DIR).as_posix()
     return {"path": f"/{relative_path}"}
 
@@ -1391,7 +1443,11 @@ class AppHandler(SimpleHTTPRequestHandler):
         super().__init__(*args, directory=str(BASE_DIR), **kwargs)
 
     def end_headers(self) -> None:
-        self.send_header("Cache-Control", "no-store")
+        request_path = urlparse(self.path).path if getattr(self, "path", "") else ""
+        if request_path.startswith("/uploads/"):
+            self.send_header("Cache-Control", "public, max-age=31536000, immutable")
+        else:
+            self.send_header("Cache-Control", "no-store")
         super().end_headers()
 
     def do_GET(self) -> None:
@@ -1453,6 +1509,7 @@ class AppHandler(SimpleHTTPRequestHandler):
             "/api/logout",
             "/api/state",
             "/api/upload-image",
+            "/api/upload-video",
             "/api/admin/competition",
             "/api/admin/participant-password",
             "/api/participant-password",
@@ -1462,7 +1519,48 @@ class AppHandler(SimpleHTTPRequestHandler):
             return
 
         content_length = int(self.headers.get("Content-Length", "0"))
+        content_type = self.headers.get("Content-Type", "")
         body = self.rfile.read(content_length) if content_length > 0 else b"{}"
+
+        if parsed.path == "/api/upload-video":
+            session = self._require_auth(parsed)
+            if session is None:
+                return
+            if session.get("role") != "admin":
+                self._send_json({"error": "Forbidden."}, status=HTTPStatus.FORBIDDEN)
+                return
+            if not content_type.lower().startswith("multipart/form-data"):
+                self._send_json({"error": "Expected multipart form data."}, status=HTTPStatus.BAD_REQUEST)
+                return
+            try:
+                environ = {
+                    "REQUEST_METHOD": "POST",
+                    "CONTENT_TYPE": content_type,
+                    "CONTENT_LENGTH": str(content_length),
+                }
+                form = cgi.FieldStorage(
+                    fp=io.BytesIO(body),
+                    headers=self.headers,
+                    environ=environ,
+                    keep_blank_values=True,
+                )
+                file_item = form["file"] if "file" in form else None
+                if file_item is None or not getattr(file_item, "file", None):
+                    raise ValueError("No video file provided.")
+                file_bytes = file_item.file.read()
+                stored_video = store_uploaded_video(
+                    getattr(file_item, "filename", "") or "presentation-background.mp4",
+                    getattr(file_item, "type", "") or "",
+                    file_bytes,
+                )
+            except ValueError as error:
+                self._send_json({"error": str(error)}, status=HTTPStatus.BAD_REQUEST)
+                return
+            except Exception:
+                self._send_json({"error": "Could not store video."}, status=HTTPStatus.BAD_REQUEST)
+                return
+            self._send_json(stored_video)
+            return
 
         try:
             payload = json.loads(body.decode("utf-8"))

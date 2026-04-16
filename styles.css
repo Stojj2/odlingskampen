@@ -52,6 +52,14 @@ body {
   font-family: var(--body-01-font-family, "Scania Sans", sans-serif);
 }
 
+body.tegel-page[data-view="board"] {
+  background:
+    radial-gradient(circle at top center, color-mix(in srgb, var(--tds-blue-400) 18%, transparent) 0, transparent 33%),
+    radial-gradient(circle at bottom right, color-mix(in srgb, var(--tds-blue-300) 14%, transparent) 0, transparent 30%),
+    linear-gradient(180deg, var(--tds-blue-900) 0%, var(--tds-blue-800) 100%);
+  color: var(--text-strong);
+}
+
 body[data-view="board"] {
   overflow: hidden;
 }
@@ -838,6 +846,10 @@ textarea:disabled,
   z-index: 0;
   overflow: hidden;
   pointer-events: none;
+}
+
+.display-background[hidden] {
+  display: none !important;
 }
 
 .display-background__video {
