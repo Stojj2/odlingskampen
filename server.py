@@ -9,6 +9,7 @@ import hashlib
 import hmac
 import io
 import json
+import os
 import re
 import secrets
 import threading
@@ -65,6 +66,12 @@ SESSION_TTL_SECONDS = 24 * 60 * 60
 PASSWORD_ITERATIONS = 200_000
 DEFAULT_ADMIN_USERNAME = "admin"
 DEFAULT_ADMIN_PASSWORD = "Odlingskampen2026"
+SESSION_COOKIE_SECURE = os.getenv("ODLINGSKAMPEN_COOKIE_SECURE", "").strip().lower() in {"1", "true", "yes", "on"}
+LOGIN_WINDOW_SECONDS = 5 * 60
+LOGIN_MAX_ATTEMPTS = 10
+LOGIN_BLOCK_SECONDS = 10 * 60
+LOGIN_ATTEMPT_LOCK = threading.Lock()
+LOGIN_ATTEMPTS: dict[str, dict[str, float]] = {}
 
 
 def utc_now_iso() -> str:
@@ -136,7 +143,7 @@ def default_competition(
         "id": allocate_competition_id(competition_year),
         "year": competition_year,
         "eventName": sanitize_text(event_name, 120) or default_event_name_for_year(competition_year),
-        "eventSubtitle": sanitize_text(event_subtitle, 140) or "Företagets live-scoreboard för fruktvägningen.",
+        "eventSubtitle": sanitize_text(event_subtitle, 140) or "FÃ¶retagets live-scoreboard fÃ¶r fruktvÃ¤gningen.",
         "eventRules": sanitize_text(event_rules, 4000),
         "participants": [],
         "weighIns": [],
@@ -168,28 +175,6 @@ def default_state() -> dict:
         "activeCompetitionId": competition["id"],
         "competitions": [competition],
         "updatedAt": competition["updatedAt"],
-    }
-    return {
-        "version": 2,
-        "eventName": "Odlingskampen",
-        "eventSubtitle": "Företagets live-scoreboard för fruktvägningen.",
-        "participants": [],
-        "weighIns": [],
-        "presentation": {
-            "mode": "board",
-            "spotlightParticipantId": "",
-            "spotlightAutoplay": True,
-            "spotlightIntervalSec": 8,
-            "spotlightAnchorAt": utc_now_iso(),
-            "weighInShowcase": {
-                "token": "",
-                "participantId": "",
-                "phase": "idle",
-                "finalWeightKg": None,
-                "startedAt": "",
-            },
-        },
-        "updatedAt": utc_now_iso(),
     }
 
 
@@ -590,7 +575,7 @@ def store_uploaded_image(payload: object, allowed_participant_id: str = "") -> d
         raise ValueError("Missing participant, stage, or image data.")
 
     if allowed_participant_id and participant_id != sanitize_id(allowed_participant_id):
-        raise ValueError("Du får bara ladda upp bilder för din egen deltagare.")
+        raise ValueError("Du fÃ¥r bara ladda upp bilder fÃ¶r din egen deltagare.")
 
     current_state = load_state()
     participant_ids = {participant["id"] for participant in current_state.get("participants", [])}
@@ -882,17 +867,6 @@ def write_store(payload: object) -> dict:
 def load_state() -> dict:
     return build_state_response(load_store())
 
-    ensure_storage()
-    with STATE_LOCK:
-        try:
-            payload = json.loads(STATE_FILE.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError):
-            payload = default_state()
-    sanitized = sanitize_state(payload)
-    if sanitized != payload:
-        write_state(sanitized)
-    return sanitized
-
 
 def write_state(payload: object) -> dict:
     raw_payload = payload if isinstance(payload, dict) else {}
@@ -922,13 +896,6 @@ def write_state(payload: object) -> dict:
         "updatedAt": utc_now_iso(),
     }
     return build_state_response(write_store(next_store))
-
-    ensure_storage()
-    sanitized = sanitize_state(payload)
-    with STATE_LOCK:
-        STATE_FILE.write_text(json.dumps(sanitized, ensure_ascii=False, indent=2), encoding="utf-8")
-    sync_participant_passwords({participant["id"] for participant in sanitized.get("participants", [])})
-    return sanitized
 
 
 def load_auth() -> dict:
@@ -974,7 +941,7 @@ def sync_participant_passwords(participant_ids: set[str]) -> None:
 def set_admin_password(password: str) -> dict:
     clean_password = password.strip()
     if len(clean_password) < 8:
-        raise ValueError("Lösenordet måste vara minst 8 tecken.")
+        raise ValueError("LÃ¶senordet mÃ¥ste vara minst 8 tecken.")
 
     current_auth = load_auth()
     return write_auth(
@@ -994,7 +961,7 @@ def set_participant_password(participant_id: str, password: str) -> dict:
     if not clean_participant_id:
         raise ValueError("Ogiltig deltagare.")
     if len(clean_password) < 3:
-        raise ValueError("Deltagarlösenordet måste vara minst 3 tecken.")
+        raise ValueError("DeltagarlÃ¶senordet mÃ¥ste vara minst 3 tecken.")
 
     current_state = load_store()
     participant_ids = get_all_participant_ids(current_state)
@@ -1019,14 +986,14 @@ def change_participant_password(participant_id: str, current_password: str, new_
     if not clean_participant_id:
         raise ValueError("Ogiltig deltagare.")
     if not clean_current_password:
-        raise ValueError("Skriv in ditt nuvarande lösenord.")
+        raise ValueError("Skriv in ditt nuvarande lÃ¶senord.")
     if len(clean_new_password) < 3:
-        raise ValueError("Det nya lösenordet måste vara minst 3 tecken.")
+        raise ValueError("Det nya lÃ¶senordet mÃ¥ste vara minst 3 tecken.")
 
     auth_state = load_auth()
     current_password_entry = auth_state["participantPasswords"].get(clean_participant_id)
     if current_password_entry is None or not verify_password(clean_current_password, current_password_entry):
-        raise ValueError("Nuvarande lösenord är fel.")
+        raise ValueError("Nuvarande lÃ¶senord Ã¤r fel.")
 
     next_passwords = dict(auth_state["participantPasswords"])
     next_passwords[clean_participant_id] = create_password_entry(clean_new_password)
@@ -1131,15 +1098,64 @@ def get_session(token: str) -> dict | None:
         return dict(session)
 
 
+def build_login_attempt_key(client_ip: str, username: str) -> str:
+    normalized_ip = sanitize_text(client_ip, 80).lower() or "unknown"
+    normalized_username = sanitize_text(username, 80).lower() or "_"
+    return f"{normalized_ip}:{normalized_username}"
+
+
+def login_block_seconds_remaining(attempt_key: str) -> int:
+    now = time.time()
+    with LOGIN_ATTEMPT_LOCK:
+        entry = LOGIN_ATTEMPTS.get(attempt_key)
+        if not entry:
+            return 0
+        blocked_until = float(entry.get("blockedUntil", 0.0))
+        last_attempt_at = float(entry.get("lastAttemptAt", 0.0))
+        if blocked_until <= now and now - last_attempt_at > LOGIN_WINDOW_SECONDS:
+            LOGIN_ATTEMPTS.pop(attempt_key, None)
+            return 0
+        if blocked_until <= now:
+            return 0
+        return int(max(1, blocked_until - now))
+
+
+def register_failed_login_attempt(attempt_key: str) -> None:
+    now = time.time()
+    with LOGIN_ATTEMPT_LOCK:
+        entry = LOGIN_ATTEMPTS.get(attempt_key, {"count": 0.0, "lastAttemptAt": 0.0, "blockedUntil": 0.0})
+        last_attempt_at = float(entry.get("lastAttemptAt", 0.0))
+        count = float(entry.get("count", 0.0))
+        if now - last_attempt_at > LOGIN_WINDOW_SECONDS:
+            count = 0.0
+        count += 1.0
+        blocked_until = float(entry.get("blockedUntil", 0.0))
+        if count >= LOGIN_MAX_ATTEMPTS:
+            blocked_until = now + LOGIN_BLOCK_SECONDS
+            count = 0.0
+        LOGIN_ATTEMPTS[attempt_key] = {
+            "count": count,
+            "lastAttemptAt": now,
+            "blockedUntil": blocked_until,
+        }
+
+
+def clear_failed_login_attempts(attempt_key: str) -> None:
+    with LOGIN_ATTEMPT_LOCK:
+        LOGIN_ATTEMPTS.pop(attempt_key, None)
+
+
 def build_session_cookie(token: str) -> str:
+    secure_suffix = "; Secure" if SESSION_COOKIE_SECURE else ""
     return (
         f"{SESSION_COOKIE_NAME}={token}; Path=/; Max-Age={SESSION_TTL_SECONDS}; "
-        "HttpOnly; SameSite=Lax"
+        f"HttpOnly; SameSite=Lax{secure_suffix}"
     )
 
 
 def build_expired_session_cookie() -> str:
-    return f"{SESSION_COOKIE_NAME}=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax"
+    secure_suffix = "; Secure" if SESSION_COOKIE_SECURE else ""
+    return f"{SESSION_COOKIE_NAME}=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax{secure_suffix}"
 
 
 def sanitize_next_path(value: object) -> str:
@@ -1214,7 +1230,7 @@ def activate_competition(competition_id: str) -> dict:
     current_state = load_store()
     clean_competition_id = sanitize_id(competition_id)
     if get_competition_by_id(current_state, clean_competition_id) is None:
-        raise ValueError("Tävlingen finns inte.")
+        raise ValueError("TÃ¤vlingen finns inte.")
 
     next_state = {
         **current_state,
@@ -1229,11 +1245,11 @@ def delete_competition(competition_id: str) -> dict:
     clean_competition_id = sanitize_id(competition_id)
     competitions = current_state.get("competitions", [])
     if get_competition_by_id(current_state, clean_competition_id) is None:
-        raise ValueError("Tävlingen finns inte.")
+        raise ValueError("TÃ¤vlingen finns inte.")
     if len(competitions) <= 1:
-        raise ValueError("Den sista tävlingen kan inte tas bort.")
+        raise ValueError("Den sista tÃ¤vlingen kan inte tas bort.")
     if clean_competition_id == sanitize_id(current_state.get("activeCompetitionId")):
-        raise ValueError("Aktivera en annan tävling innan du tar bort den här.")
+        raise ValueError("Aktivera en annan tÃ¤vling innan du tar bort den hÃ¤r.")
 
     next_state = {
         **current_state,
@@ -1300,7 +1316,7 @@ def build_participant_context(participant_id: str, competition_id: str = "") -> 
     participants = active_competition.get("participants", [])
     participant = next((candidate for candidate in participants if candidate["id"] == participant_id), None)
     if participant is None:
-        raise ValueError("Deltagaren finns inte längre.")
+        raise ValueError("Deltagaren finns inte lÃ¤ngre.")
 
     username_map = build_participant_username_map(participants)
     active_results = build_competition_results(current_state, active_competition["id"], participant_id)
@@ -1345,59 +1361,6 @@ def build_participant_context(participant_id: str, competition_id: str = "") -> 
             if isinstance(candidate, dict) and sanitize_id(candidate.get("id"))
         },
         "updatedAt": active_competition["updatedAt"],
-    }
-
-    current_state = load_state()
-    participants = current_state.get("participants", [])
-    participant = next((candidate for candidate in participants if candidate["id"] == participant_id), None)
-    if participant is None:
-        raise ValueError("Deltagaren finns inte längre.")
-
-    ranked_standings = build_standings(current_state)
-    username_map = build_participant_username_map(participants)
-    rank_map = {entry["id"]: entry for entry in ranked_standings}
-    waiting_entries = sorted(
-        [candidate for candidate in participants if candidate["id"] not in rank_map],
-        key=lambda item: (item["name"].casefold(), item["id"]),
-    )
-    all_entries = ranked_standings + [
-        {
-            "id": waiting_entry["id"],
-            "rank": None,
-            "name": waiting_entry["name"],
-            "team": waiting_entry["team"],
-            "weightKg": None,
-        }
-        for waiting_entry in waiting_entries
-    ]
-    standing_entry = rank_map.get(participant_id)
-
-    return {
-        "eventName": current_state["eventName"],
-        "eventSubtitle": current_state["eventSubtitle"],
-        "participant": {
-            "id": participant["id"],
-            "name": participant["name"],
-            "team": participant["team"],
-            "username": username_map.get(participant["id"], ""),
-            "images": participant.get("images", sanitize_participant_images({})),
-            "weightKg": standing_entry["weightKg"] if standing_entry else None,
-            "rank": standing_entry["rank"] if standing_entry else None,
-            "measuredAt": standing_entry["measuredAt"] if standing_entry else None,
-        },
-        "standings": [
-            {
-                "id": entry["id"],
-                "rank": entry["rank"],
-                "name": entry["name"],
-                "team": entry["team"],
-                "weightKg": entry["weightKg"],
-                "hasWeight": entry["weightKg"] is not None,
-                "isSelf": entry["id"] == participant_id,
-            }
-            for entry in all_entries
-        ],
-        "updatedAt": current_state["updatedAt"],
     }
 
 
@@ -1603,7 +1566,7 @@ class AppHandler(SimpleHTTPRequestHandler):
                 if action == "delete":
                     self._send_json(delete_competition(body.get("competitionId")))
                     return
-                self._send_json({"error": "Ogiltig tävlingsåtgärd."}, status=HTTPStatus.BAD_REQUEST)
+                self._send_json({"error": "Ogiltig tÃ¤vlingsÃ¥tgÃ¤rd."}, status=HTTPStatus.BAD_REQUEST)
                 return
 
             if parsed.path == "/api/admin/participant-password":
@@ -1654,29 +1617,6 @@ class AppHandler(SimpleHTTPRequestHandler):
 
     def log_message(self, format: str, *args) -> None:
         print(f"[server] {self.address_string()} - {format % args}")
-
-    def _handle_login(self, payload: object) -> None:
-        body = payload if isinstance(payload, dict) else {}
-        username = sanitize_text(body.get("username"), 80)
-        password = body.get("password") if isinstance(body.get("password"), str) else ""
-        session_payload = resolve_login_credentials(username, password)
-
-        if session_payload is None:
-            self._send_json({"error": "Fel användarnamn eller lösenord."}, status=HTTPStatus.UNAUTHORIZED)
-            return
-
-        next_path = self._normalize_next_target_for_session(session_payload, sanitize_next_path(body.get("next")))
-        session_token = create_session(session_payload)
-        self._send_json(
-            {
-                "ok": True,
-                "next": next_path,
-                "role": session_payload["role"],
-                "username": session_payload["username"],
-                "displayName": session_payload.get("displayName", ""),
-            },
-            headers={"Set-Cookie": build_session_cookie(session_token)},
-        )
 
     def _handle_logout(self) -> None:
         session_token = self._get_session_token()
@@ -1752,6 +1692,14 @@ class AppHandler(SimpleHTTPRequestHandler):
             return next_target
         return ""
 
+    def _get_client_ip(self) -> str:
+        forwarded_for = self.headers.get("X-Forwarded-For", "")
+        if forwarded_for:
+            first_hop = forwarded_for.split(",")[0].strip()
+            if first_hop:
+                return first_hop
+        return self.client_address[0] if self.client_address else ""
+
     def _redirect_to_login(self, parsed) -> None:
         next_target = sanitize_next_path(f"{parsed.path}{f'?{parsed.query}' if parsed.query else ''}") or "/index.html?view=settings"
         self._redirect(f"/login?next={quote(next_target, safe='/')}")
@@ -1761,12 +1709,22 @@ class AppHandler(SimpleHTTPRequestHandler):
         username = sanitize_text(body.get("username"), 80)
         password = body.get("password") if isinstance(body.get("password"), str) else ""
         role = sanitize_text(body.get("role"), 20).lower()
+        attempt_key = build_login_attempt_key(self._get_client_ip(), username)
+        blocked_seconds = login_block_seconds_remaining(attempt_key)
+        if blocked_seconds > 0:
+            self._send_json(
+                {"error": f"För många inloggningsförsök. Försök igen om {blocked_seconds} sekunder."},
+                status=HTTPStatus.TOO_MANY_REQUESTS,
+            )
+            return
         session_payload = resolve_login_credentials(username, password, role)
 
         if session_payload is None:
-            self._send_json({"error": "Fel användarnamn eller lösenord."}, status=HTTPStatus.UNAUTHORIZED)
+            register_failed_login_attempt(attempt_key)
+            self._send_json({"error": "Fel anvÃ¤ndarnamn eller lÃ¶senord."}, status=HTTPStatus.UNAUTHORIZED)
             return
 
+        clear_failed_login_attempts(attempt_key)
         next_path = self._normalize_next_target_for_session(session_payload, sanitize_next_path(body.get("next")))
         session_token = create_session(session_payload)
         self._send_json(
@@ -1802,14 +1760,14 @@ class AppHandler(SimpleHTTPRequestHandler):
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Lokal server för Odlingskampen live.")
-    parser.add_argument("--host", default="127.0.0.1", help="Värdnamn eller IP-adress att lyssna på.")
-    parser.add_argument("--port", default=8080, type=int, help="Port för webbservern.")
+    parser = argparse.ArgumentParser(description="Lokal server fÃ¶r Odlingskampen live.")
+    parser.add_argument("--host", default="127.0.0.1", help="VÃ¤rdnamn eller IP-adress att lyssna pÃ¥.")
+    parser.add_argument("--port", default=8080, type=int, help="Port fÃ¶r webbservern.")
     parser.add_argument(
         "--set-password",
         nargs="?",
         const="__prompt__",
-        help="Sätt nytt adminlösenord och avsluta. Lämna värdet tomt för att bli promptad.",
+        help="SÃ¤tt nytt adminlÃ¶senord och avsluta. LÃ¤mna vÃ¤rdet tomt fÃ¶r att bli promptad.",
     )
     return parser.parse_args()
 
@@ -1818,10 +1776,10 @@ def resolve_new_password(argument_value: str) -> str:
     if argument_value != "__prompt__":
         return argument_value
 
-    first = getpass.getpass("Nytt adminlösenord: ")
-    second = getpass.getpass("Bekräfta adminlösenord: ")
+    first = getpass.getpass("Nytt adminlÃ¶senord: ")
+    second = getpass.getpass("BekrÃ¤fta adminlÃ¶senord: ")
     if first != second:
-        raise ValueError("Lösenorden matchar inte.")
+        raise ValueError("LÃ¶senorden matchar inte.")
     return first
 
 
@@ -1834,19 +1792,20 @@ def main() -> None:
             set_admin_password(resolve_new_password(args.set_password))
         except ValueError as error:
             raise SystemExit(str(error)) from error
-        print("Adminlösenordet är uppdaterat.")
+        print("AdminlÃ¶senordet Ã¤r uppdaterat.")
         return
 
     server = ThreadingHTTPServer((args.host, args.port), AppHandler)
-    print(f"Odlingskampen live körs på http://{args.host}:{args.port}")
-    print("Öppna /login för att logga in som admin.")
+    print(f"Odlingskampen live kÃ¶rs pÃ¥ http://{args.host}:{args.port}")
+    print("Ã–ppna /login fÃ¶r att logga in som admin.")
     try:
         server.serve_forever()
     except KeyboardInterrupt:
-        print("\nStänger servern...")
+        print("\nStÃ¤nger servern...")
     finally:
         server.server_close()
 
 
 if __name__ == "__main__":
     main()
+

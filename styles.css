@@ -953,8 +953,8 @@ textarea:disabled,
   border: 1px solid var(--panel-border);
   background: linear-gradient(
     180deg,
-    color-mix(in srgb, var(--tds-blue-600) 86%, transparent),
-    color-mix(in srgb, var(--tds-blue-700) 92%, transparent)
+    color-mix(in srgb, var(--tds-blue-600) 70%, transparent),
+    color-mix(in srgb, var(--tds-blue-700) 80%, transparent)
   );
   box-shadow: var(--panel-shadow);
   transition: opacity 220ms ease, filter 220ms ease, box-shadow 220ms ease, border-color 220ms ease;
