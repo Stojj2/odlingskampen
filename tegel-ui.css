@@ -891,6 +891,11 @@ tds-modal > [slot="actions"] {
   gap: var(--tds-spacing-element-20);
 }
 
+.participant-rules-copy {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
 #participant-standings-image-dialog .tegel-modal-body {
   gap: var(--tds-spacing-element-8);
   justify-items: center;

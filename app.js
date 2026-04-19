@@ -3593,6 +3593,7 @@ async function uploadPresentationBackgroundVideo(file) {
 
     xhr.open("POST", "/api/upload-video");
     xhr.responseType = "json";
+    xhr.timeout = 15 * 60 * 1000;
 
     xhr.upload.addEventListener("progress", (event) => {
       if (!event.lengthComputable) {
@@ -3604,37 +3605,55 @@ async function uploadPresentationBackgroundVideo(file) {
     });
 
     xhr.addEventListener("load", () => {
-      if (xhr.status === 401) {
-        redirectToLogin();
-        reject(new Error("Unauthorized"));
-        return;
-      }
-      if (xhr.status < 200 || xhr.status >= 300) {
-        let errorMessage = "";
-        const payload = xhr.response && typeof xhr.response === "object" ? xhr.response : null;
-        if (payload && typeof payload.error === "string" && payload.error.trim()) {
-          errorMessage = payload.error.trim();
-        } else if (typeof xhr.responseText === "string" && xhr.responseText.trim()) {
-          try {
-            const parsed = JSON.parse(xhr.responseText);
-            if (parsed && typeof parsed.error === "string" && parsed.error.trim()) {
-              errorMessage = parsed.error.trim();
-            }
-          } catch {}
+      try {
+        if (xhr.status === 401) {
+          redirectToLogin();
+          reject(new Error("Unauthorized"));
+          return;
         }
-        if (!errorMessage) {
-          errorMessage =
-            xhr.status === 413
-              ? "Videofilen är för stor. Komprimera videon och försök igen."
-              : `Videouppladdningen misslyckades (status ${xhr.status}).`;
-        }
-        reject(new Error(errorMessage));
-        return;
-      }
 
-      const payload = xhr.response && typeof xhr.response === "object" ? xhr.response : JSON.parse(xhr.responseText || "{}");
-      setPresentationBackgroundUploadProgress(100, `Videon ${file.name} är uppladdad.`);
-      resolve(typeof payload.path === "string" ? payload.path : "");
+        let payload = xhr.response && typeof xhr.response === "object" ? xhr.response : null;
+        if (!payload && typeof xhr.responseText === "string" && xhr.responseText.trim()) {
+          const responseText = xhr.responseText.trim();
+          if (responseText.startsWith("<!DOCTYPE") || responseText.startsWith("<html")) {
+            reject(new Error("Servern svarade med HTML istället för API-svar. Kontrollera reverse proxy/routing."));
+            return;
+          }
+          try {
+            payload = JSON.parse(responseText);
+          } catch {
+            reject(new Error("Ogiltigt svar från servern vid videouppladdning."));
+            return;
+          }
+        }
+
+        if (xhr.status < 200 || xhr.status >= 300) {
+          const payloadError = payload && typeof payload.error === "string" ? payload.error.trim() : "";
+          const errorMessage =
+            payloadError ||
+            (xhr.status === 413
+              ? "Videofilen är för stor. Komprimera videon och försök igen."
+              : `Videouppladdningen misslyckades (status ${xhr.status}).`);
+          reject(new Error(errorMessage));
+          return;
+        }
+
+        const rawPath =
+          (payload && typeof payload.path === "string" && payload.path.trim()) ||
+          (payload && typeof payload.videoPath === "string" && payload.videoPath.trim()) ||
+          (payload && typeof payload.url === "string" && payload.url.trim()) ||
+          "";
+        const safePath = sanitizeMediaPath(rawPath);
+        if (!safePath) {
+          reject(new Error("Videouppladdningen lyckades men servern returnerade ingen giltig videopath."));
+          return;
+        }
+
+        setPresentationBackgroundUploadProgress(100, `Videon ${file.name} är uppladdad.`);
+        resolve(safePath);
+      } catch {
+        reject(new Error("Videouppladdningen misslyckades oväntat."));
+      }
     });
 
     xhr.addEventListener("error", () => {
@@ -3643,6 +3662,10 @@ async function uploadPresentationBackgroundVideo(file) {
 
     xhr.addEventListener("abort", () => {
       reject(new Error("Upload aborted"));
+    });
+
+    xhr.addEventListener("timeout", () => {
+      reject(new Error("Videouppladdningen tog för lång tid och avbröts."));
     });
 
     setPresentationBackgroundUploadProgress(0, `Startar uppladdning av ${file.name}...`);
