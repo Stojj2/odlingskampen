@@ -76,7 +76,6 @@ function cacheDom() {
   dom.competitionCopy = document.getElementById("participant-competition-copy");
   dom.standingsTableBody = document.getElementById("participant-standings-table-body");
   dom.standingsImageDialog = document.getElementById("participant-standings-image-dialog");
-  dom.standingsImageDialogTitle = document.getElementById("participant-standings-image-title");
   dom.standingsImageDialogPreview = document.getElementById("participant-standings-image-preview");
   dom.standingsImageDialogEmpty = document.getElementById("participant-standings-image-empty");
   dom.standingsImageDialogCloseButton = document.getElementById("participant-standings-image-close-btn");
@@ -543,10 +542,6 @@ function openStandingsImageDialog(trigger) {
   const positionX = sanitizeImageOffset(trigger.getAttribute("data-image-position-x"));
   const positionY = sanitizeImageOffset(trigger.getAttribute("data-image-position-y"));
   const scale = sanitizeImageScale(trigger.getAttribute("data-image-scale"));
-
-  if (dom.standingsImageDialogTitle instanceof HTMLElement) {
-    dom.standingsImageDialogTitle.textContent = participantName && stageLabel ? `${participantName} - ${stageLabel}` : "Bild";
-  }
 
   if (imagePath) {
     dom.standingsImageDialogPreview.hidden = false;

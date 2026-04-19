@@ -602,27 +602,27 @@ tds-modal > [slot="actions"] {
 .participant-standings-image-dialog-shell {
   width: 100%;
   max-width: 100%;
+  min-height: 0;
   margin-inline: auto;
   background: transparent;
   border-radius: 0;
-  overflow: hidden;
+  overflow: visible;
   display: flex;
   justify-content: center;
-  align-items: flex-start;
+  align-items: center;
 }
 
-.participant-standings-image-title {
-  margin: 0;
-  font: var(--tds-paragraph-02);
-  color: var(--foreground-text-subtle);
+.participant-standings-image-dialog-shell .empty-state {
+  width: 100%;
+  text-align: center;
 }
 
 .participant-standings-modal-image {
   display: block;
-  width: auto;
+  width: min(100%, 70rem);
   height: auto;
-  max-width: min(100%, 64rem);
-  max-height: 56vh;
+  max-width: 100%;
+  max-height: min(62dvh, calc(100dvh - 16rem));
   object-fit: contain;
   margin-inline: auto;
 }
@@ -718,6 +718,14 @@ tds-modal > [slot="actions"] {
   width: 100%;
   height: 100%;
   object-fit: cover;
+}
+
+#participant-standings-image-preview.participant-standings-modal-image {
+  width: min(100%, 70rem);
+  height: auto;
+  max-width: 100%;
+  max-height: min(62dvh, calc(100dvh - 16rem));
+  object-fit: contain;
 }
 
 .stage-preview-image,
@@ -826,7 +834,8 @@ tds-modal > [slot="actions"] {
 }
 
 #participant-standings-image-dialog .tegel-modal-body {
-  gap: var(--tds-spacing-element-12);
+  gap: var(--tds-spacing-element-8);
+  justify-items: center;
 }
 
 .tegel-image-adjust-layout {
@@ -1079,7 +1088,7 @@ tds-tag.tegel-desktop-header-status {
   }
 
   .participant-standings-modal-image {
-    max-height: 48vh;
+    max-height: min(72dvh, calc(100dvh - 10.5rem));
   }
 
   .tegel-table-shell tds-table,
