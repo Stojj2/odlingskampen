@@ -87,6 +87,27 @@ body.tegel-login-page {
   outline: none;
 }
 
+.tegel-skip-link {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  z-index: 1000;
+  padding: var(--tds-spacing-element-8) var(--tds-spacing-element-12);
+  background: var(--background-elevation-layer-02);
+  color: var(--foreground-text-strong);
+  border: 1px solid var(--foreground-border-defined);
+  border-radius: var(--tds-border-radius-small);
+  text-decoration: none;
+}
+
+.tegel-skip-link:focus,
+.tegel-skip-link:focus-visible {
+  left: var(--tds-spacing-element-8);
+  top: var(--tds-spacing-element-8);
+  outline: 2px solid var(--tds-blue-600, var(--foreground-interactive-primary));
+  outline-offset: 2px;
+}
+
 .tegel-page[data-view="board"] .tegel-app-header,
 .tegel-page[data-view="board"] #mobile-topbar-menu {
   display: none !important;
