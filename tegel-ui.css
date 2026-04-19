@@ -9,6 +9,12 @@ body.tegel-participant-page {
   color: var(--foreground-text-strong);
 }
 
+html.tegel-modal-open,
+body.tegel-modal-open {
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
 body.tegel-login-page {
   background: var(--background-base-secondary, var(--background-elevation-base));
 }
@@ -859,6 +865,31 @@ tds-modal > [slot="actions"] {
   justify-items: center;
 }
 
+#image-adjust-dialog .tegel-modal-body {
+  gap: var(--tds-spacing-element-8);
+}
+
+#image-adjust-dialog .tegel-image-adjust-layout {
+  gap: var(--tds-spacing-element-8);
+}
+
+#image-adjust-dialog .tegel-slider-stack {
+  gap: var(--tds-spacing-element-8);
+}
+
+#image-adjust-dialog .tegel-slider-stack tds-slider {
+  touch-action: none;
+}
+
+#image-adjust-workspace-shell {
+  touch-action: none;
+  user-select: none;
+}
+
+#image-adjust-workspace-shell.is-dragging {
+  cursor: grabbing;
+}
+
 .tegel-image-adjust-layout {
   display: grid;
   gap: var(--tds-spacing-element-20);
@@ -1110,6 +1141,29 @@ tds-tag.tegel-desktop-header-status {
 
   .participant-standings-modal-image {
     max-height: min(72dvh, calc(100dvh - 10.5rem));
+  }
+
+  #image-adjust-dialog .tegel-modal-body {
+    gap: var(--tds-spacing-element-8);
+  }
+
+  #image-adjust-dialog .tegel-image-adjust-layout {
+    gap: var(--tds-spacing-element-8);
+  }
+
+  #image-adjust-dialog .tegel-image-adjust-layout .tegel-image-preview {
+    max-height: min(28dvh, 15rem);
+  }
+
+  #image-adjust-dialog .tegel-slider-stack {
+    gap: var(--tds-spacing-element-8);
+  }
+
+  #image-adjust-dialog .tegel-modal-actions {
+    position: sticky;
+    bottom: 0;
+    background: var(--background-elevation-layer-01);
+    padding-top: var(--tds-spacing-element-8);
   }
 
   .tegel-table-shell tds-table,

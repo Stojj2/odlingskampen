@@ -23,6 +23,7 @@ const runtime = {
   selectedCompetitionId: "",
   imageAdjustSession: null,
   isUpdatingCompetitionSelect: false,
+  isSyncingImageAdjustControls: false,
 };
 
 let context = null;
@@ -417,6 +418,7 @@ function bindEvents() {
   bindControlEvents(dom.imageAdjustScale, syncImageAdjustPreviewFromControls);
   bindControlEvents(dom.imageAdjustOffsetX, syncImageAdjustPreviewFromControls);
   bindControlEvents(dom.imageAdjustOffsetY, syncImageAdjustPreviewFromControls);
+  bindImageAdjustTouchGuards();
 
   if (dom.imageAdjustCancelButton) {
     dom.imageAdjustCancelButton.addEventListener("click", closeImageAdjustDialog);
@@ -778,6 +780,7 @@ function openImageAdjustDialog(stageKey, imageValue = null) {
   }
   if (dom.imageAdjustCopy instanceof HTMLElement) {
     dom.imageAdjustCopy.textContent = "";
+    dom.imageAdjustCopy.hidden = true;
   }
 
   syncImageAdjustControls(image);
@@ -788,13 +791,18 @@ function openImageAdjustDialog(stageKey, imageValue = null) {
 
 function syncImageAdjustControls(imageValue) {
   const image = normalizeParticipantImage(imageValue);
-  setControlValue(dom.imageAdjustScale, String(image.scale));
-  setControlValue(dom.imageAdjustOffsetX, String(image.positionX));
-  setControlValue(dom.imageAdjustOffsetY, String(image.positionY));
+  runtime.isSyncingImageAdjustControls = true;
+  try {
+    setControlValue(dom.imageAdjustScale, String(image.scale));
+    setControlValue(dom.imageAdjustOffsetX, String(image.positionX));
+    setControlValue(dom.imageAdjustOffsetY, String(image.positionY));
+  } finally {
+    runtime.isSyncingImageAdjustControls = false;
+  }
 }
 
 function syncImageAdjustPreviewFromControls() {
-  if (!runtime.imageAdjustSession) {
+  if (!runtime.imageAdjustSession || runtime.isSyncingImageAdjustControls) {
     return;
   }
 
@@ -1488,7 +1496,7 @@ function moveImageAdjustDrag(event) {
     runtime.imageAdjustSession.image.scale,
   );
 
-  updateImageAdjustSessionImage(nextImage);
+  updateImageAdjustSessionImage(nextImage, { skipControlSync: true });
   event.preventDefault();
 }
 
@@ -1506,20 +1514,24 @@ function endImageAdjustDrag(event) {
     ...runtime.imageAdjustSession,
     drag: null,
   };
+  syncImageAdjustControls(runtime.imageAdjustSession.image);
   setImageAdjustDragging(false);
 }
 
-function updateImageAdjustSessionImage(imageValue) {
+function updateImageAdjustSessionImage(imageValue, options = {}) {
   if (!runtime.imageAdjustSession) {
     return;
   }
 
+  const skipControlSync = Boolean(options.skipControlSync);
   const nextImage = normalizeParticipantImage(imageValue);
   runtime.imageAdjustSession = {
     ...runtime.imageAdjustSession,
     image: nextImage,
   };
-  syncImageAdjustControls(nextImage);
+  if (!skipControlSync) {
+    syncImageAdjustControls(nextImage);
+  }
   renderImageAdjustPreview(nextImage, context && context.participant ? context.participant.name : "", getStageLabel(runtime.imageAdjustSession.stageKey));
 }
 
@@ -1850,6 +1862,7 @@ function bindModalCloseEvents(modal, onClose) {
       if (typeof onClose === "function") {
         onClose();
       }
+      syncBodyModalLock();
     });
   });
 }
@@ -1858,6 +1871,7 @@ function openModalElement(modal) {
   if (!modal) {
     return;
   }
+  setBodyModalLock(true);
 
   if (typeof modal.show === "function") {
     modal.show();
@@ -1906,16 +1920,19 @@ function closeModalElement(modal) {
 
   if (typeof modal.hide === "function") {
     modal.hide();
+    window.setTimeout(syncBodyModalLock, 0);
     return;
   }
 
   if (typeof modal.dismiss === "function") {
     modal.dismiss();
+    window.setTimeout(syncBodyModalLock, 0);
     return;
   }
 
   if (typeof modal.close === "function") {
     modal.close();
+    window.setTimeout(syncBodyModalLock, 0);
     return;
   }
 
@@ -1943,6 +1960,60 @@ function closeModalElement(modal) {
   }
 
   modal.dispatchEvent(new Event("close"));
+  syncBodyModalLock();
+}
+
+function bindImageAdjustTouchGuards() {
+  const controls = [dom.imageAdjustScale, dom.imageAdjustOffsetX, dom.imageAdjustOffsetY].filter(
+    (control) => control instanceof HTMLElement,
+  );
+
+  controls.forEach((control) => {
+    control.addEventListener(
+      "touchmove",
+      (event) => {
+        if (runtime.imageAdjustSession) {
+          event.preventDefault();
+        }
+      },
+      { passive: false },
+    );
+  });
+}
+
+function hasOpenModal() {
+  const modalNodes = Array.from(document.querySelectorAll("tds-modal"));
+  return modalNodes.some((modal) => {
+    if (!(modal instanceof HTMLElement)) {
+      return false;
+    }
+    if (modal.classList.contains("show")) {
+      return true;
+    }
+    if (modal.hasAttribute("open") || modal.hasAttribute("show")) {
+      return true;
+    }
+    if ("open" in modal && modal.open) {
+      return true;
+    }
+    if ("show" in modal && modal.show) {
+      return true;
+    }
+    return false;
+  });
+}
+
+function setBodyModalLock(shouldLock) {
+  if (document.body instanceof HTMLElement) {
+    document.body.classList.toggle("tegel-modal-open", Boolean(shouldLock));
+  }
+  if (document.documentElement instanceof HTMLElement) {
+    document.documentElement.classList.toggle("tegel-modal-open", Boolean(shouldLock));
+  }
+}
+
+function syncBodyModalLock() {
+  setBodyModalLock(hasOpenModal());
 }
 
 function renderSelectOptions(select, options, selectedValue) {
