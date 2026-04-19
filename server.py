@@ -143,7 +143,7 @@ def default_competition(
         "id": allocate_competition_id(competition_year),
         "year": competition_year,
         "eventName": sanitize_text(event_name, 120) or default_event_name_for_year(competition_year),
-        "eventSubtitle": sanitize_text(event_subtitle, 140) or "FÃ¶retagets live-scoreboard fÃ¶r fruktvÃ¤gningen.",
+            "eventSubtitle": sanitize_text(event_subtitle, 140) or "Företagets live-scoreboard för fruktvägningen.",
         "eventRules": sanitize_text(event_rules, 4000),
         "participants": [],
         "weighIns": [],
@@ -575,7 +575,7 @@ def store_uploaded_image(payload: object, allowed_participant_id: str = "") -> d
         raise ValueError("Missing participant, stage, or image data.")
 
     if allowed_participant_id and participant_id != sanitize_id(allowed_participant_id):
-        raise ValueError("Du fÃ¥r bara ladda upp bilder fÃ¶r din egen deltagare.")
+            raise ValueError("Du får bara ladda upp bilder för din egen deltagare.")
 
     current_state = load_state()
     participant_ids = {participant["id"] for participant in current_state.get("participants", [])}
@@ -941,7 +941,7 @@ def sync_participant_passwords(participant_ids: set[str]) -> None:
 def set_admin_password(password: str) -> dict:
     clean_password = password.strip()
     if len(clean_password) < 8:
-        raise ValueError("LÃ¶senordet mÃ¥ste vara minst 8 tecken.")
+        raise ValueError("Lösenordet måste vara minst 8 tecken.")
 
     current_auth = load_auth()
     return write_auth(
@@ -961,7 +961,7 @@ def set_participant_password(participant_id: str, password: str) -> dict:
     if not clean_participant_id:
         raise ValueError("Ogiltig deltagare.")
     if len(clean_password) < 3:
-        raise ValueError("DeltagarlÃ¶senordet mÃ¥ste vara minst 3 tecken.")
+        raise ValueError("Deltagarlösenordet måste vara minst 3 tecken.")
 
     current_state = load_store()
     participant_ids = get_all_participant_ids(current_state)
@@ -986,14 +986,14 @@ def change_participant_password(participant_id: str, current_password: str, new_
     if not clean_participant_id:
         raise ValueError("Ogiltig deltagare.")
     if not clean_current_password:
-        raise ValueError("Skriv in ditt nuvarande lÃ¶senord.")
+        raise ValueError("Skriv in ditt nuvarande lösenord.")
     if len(clean_new_password) < 3:
-        raise ValueError("Det nya lÃ¶senordet mÃ¥ste vara minst 3 tecken.")
+        raise ValueError("Det nya lösenordet måste vara minst 3 tecken.")
 
     auth_state = load_auth()
     current_password_entry = auth_state["participantPasswords"].get(clean_participant_id)
     if current_password_entry is None or not verify_password(clean_current_password, current_password_entry):
-        raise ValueError("Nuvarande lÃ¶senord Ã¤r fel.")
+        raise ValueError("Nuvarande lösenord är fel.")
 
     next_passwords = dict(auth_state["participantPasswords"])
     next_passwords[clean_participant_id] = create_password_entry(clean_new_password)
@@ -1230,7 +1230,7 @@ def activate_competition(competition_id: str) -> dict:
     current_state = load_store()
     clean_competition_id = sanitize_id(competition_id)
     if get_competition_by_id(current_state, clean_competition_id) is None:
-        raise ValueError("TÃ¤vlingen finns inte.")
+        raise ValueError("Tävlingen finns inte.")
 
     next_state = {
         **current_state,
@@ -1245,11 +1245,11 @@ def delete_competition(competition_id: str) -> dict:
     clean_competition_id = sanitize_id(competition_id)
     competitions = current_state.get("competitions", [])
     if get_competition_by_id(current_state, clean_competition_id) is None:
-        raise ValueError("TÃ¤vlingen finns inte.")
+        raise ValueError("Tävlingen finns inte.")
     if len(competitions) <= 1:
-        raise ValueError("Den sista tÃ¤vlingen kan inte tas bort.")
+        raise ValueError("Den sista tävlingen kan inte tas bort.")
     if clean_competition_id == sanitize_id(current_state.get("activeCompetitionId")):
-        raise ValueError("Aktivera en annan tÃ¤vling innan du tar bort den hÃ¤r.")
+        raise ValueError("Aktivera en annan tävling innan du tar bort den här.")
 
     next_state = {
         **current_state,
@@ -1316,7 +1316,7 @@ def build_participant_context(participant_id: str, competition_id: str = "") -> 
     participants = active_competition.get("participants", [])
     participant = next((candidate for candidate in participants if candidate["id"] == participant_id), None)
     if participant is None:
-        raise ValueError("Deltagaren finns inte lÃ¤ngre.")
+        raise ValueError("Deltagaren finns inte längre.")
 
     username_map = build_participant_username_map(participants)
     active_results = build_competition_results(current_state, active_competition["id"], participant_id)
@@ -1566,7 +1566,7 @@ class AppHandler(SimpleHTTPRequestHandler):
                 if action == "delete":
                     self._send_json(delete_competition(body.get("competitionId")))
                     return
-                self._send_json({"error": "Ogiltig tÃ¤vlingsÃ¥tgÃ¤rd."}, status=HTTPStatus.BAD_REQUEST)
+                self._send_json({"error": "Ogiltig tävlingsåtgärd."}, status=HTTPStatus.BAD_REQUEST)
                 return
 
             if parsed.path == "/api/admin/participant-password":
@@ -1721,7 +1721,7 @@ class AppHandler(SimpleHTTPRequestHandler):
 
         if session_payload is None:
             register_failed_login_attempt(attempt_key)
-            self._send_json({"error": "Fel anvÃ¤ndarnamn eller lÃ¶senord."}, status=HTTPStatus.UNAUTHORIZED)
+            self._send_json({"error": "Fel användarnamn eller lösenord."}, status=HTTPStatus.UNAUTHORIZED)
             return
 
         clear_failed_login_attempts(attempt_key)
@@ -1760,14 +1760,14 @@ class AppHandler(SimpleHTTPRequestHandler):
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Lokal server fÃ¶r Odlingskampen live.")
-    parser.add_argument("--host", default="127.0.0.1", help="VÃ¤rdnamn eller IP-adress att lyssna pÃ¥.")
-    parser.add_argument("--port", default=8080, type=int, help="Port fÃ¶r webbservern.")
+    parser = argparse.ArgumentParser(description="Lokal server för Odlingskampen live.")
+    parser.add_argument("--host", default="127.0.0.1", help="Värdnamn eller IP-adress att lyssna på.")
+    parser.add_argument("--port", default=8080, type=int, help="Port för webbservern.")
     parser.add_argument(
         "--set-password",
         nargs="?",
         const="__prompt__",
-        help="SÃ¤tt nytt adminlÃ¶senord och avsluta. LÃ¤mna vÃ¤rdet tomt fÃ¶r att bli promptad.",
+        help="Sätt nytt adminlösenord och avsluta. Lämna värdet tomt för att bli promptad.",
     )
     return parser.parse_args()
 
@@ -1776,10 +1776,10 @@ def resolve_new_password(argument_value: str) -> str:
     if argument_value != "__prompt__":
         return argument_value
 
-    first = getpass.getpass("Nytt adminlÃ¶senord: ")
-    second = getpass.getpass("BekrÃ¤fta adminlÃ¶senord: ")
+    first = getpass.getpass("Nytt adminlösenord: ")
+    second = getpass.getpass("Bekräfta adminlösenord: ")
     if first != second:
-        raise ValueError("LÃ¶senorden matchar inte.")
+        raise ValueError("Lösenorden matchar inte.")
     return first
 
 
@@ -1792,16 +1792,16 @@ def main() -> None:
             set_admin_password(resolve_new_password(args.set_password))
         except ValueError as error:
             raise SystemExit(str(error)) from error
-        print("AdminlÃ¶senordet Ã¤r uppdaterat.")
+        print("Adminlösenordet är uppdaterat.")
         return
 
     server = ThreadingHTTPServer((args.host, args.port), AppHandler)
-    print(f"Odlingskampen live kÃ¶rs pÃ¥ http://{args.host}:{args.port}")
-    print("Ã–ppna /login fÃ¶r att logga in som admin.")
+    print(f"Odlingskampen live körs på http://{args.host}:{args.port}")
+    print("Öppna /login för att logga in som admin.")
     try:
         server.serve_forever()
     except KeyboardInterrupt:
-        print("\nStÃ¤nger servern...")
+        print("\nStänger servern...")
     finally:
         server.server_close()
 
