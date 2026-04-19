@@ -1969,6 +1969,12 @@ function bindImageAdjustTouchGuards() {
   );
 
   controls.forEach((control) => {
+    if (control instanceof HTMLInputElement && control.type === "range") {
+      control.style.touchAction = "pan-x";
+      return;
+    }
+
+    control.style.touchAction = "none";
     control.addEventListener(
       "touchmove",
       (event) => {

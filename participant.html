@@ -213,9 +213,45 @@
             </div>
           </div>
           <div class="tegel-slider-stack">
-            <tds-slider id="image-adjust-scale" label="Zoom" min="1" max="2.5" step="0.01" value="1"></tds-slider>
-            <tds-slider id="image-adjust-offset-x" label="Flytta sidled" min="-35" max="35" step="1" value="0"></tds-slider>
-            <tds-slider id="image-adjust-offset-y" label="Flytta höjdled" min="-35" max="35" step="1" value="0"></tds-slider>
+            <div class="tegel-slider-field">
+              <p class="tegel-slider-field-label">Zoom</p>
+              <input
+                id="image-adjust-scale"
+                class="tegel-image-adjust-range"
+                type="range"
+                aria-label="Zoom"
+                min="1"
+                max="2.5"
+                step="0.01"
+                value="1"
+              />
+            </div>
+            <div class="tegel-slider-field">
+              <p class="tegel-slider-field-label">Flytta sidled</p>
+              <input
+                id="image-adjust-offset-x"
+                class="tegel-image-adjust-range"
+                type="range"
+                aria-label="Flytta sidled"
+                min="-35"
+                max="35"
+                step="1"
+                value="0"
+              />
+            </div>
+            <div class="tegel-slider-field">
+              <p class="tegel-slider-field-label">Flytta höjdled</p>
+              <input
+                id="image-adjust-offset-y"
+                class="tegel-image-adjust-range"
+                type="range"
+                aria-label="Flytta höjdled"
+                min="-35"
+                max="35"
+                step="1"
+                value="0"
+              />
+            </div>
           </div>
         </div>
       </div>

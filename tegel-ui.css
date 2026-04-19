@@ -866,19 +866,88 @@ tds-modal > [slot="actions"] {
 }
 
 #image-adjust-dialog .tegel-modal-body {
-  gap: var(--tds-spacing-element-8);
+  gap: var(--tds-spacing-element-6);
 }
 
 #image-adjust-dialog .tegel-image-adjust-layout {
-  gap: var(--tds-spacing-element-8);
+  gap: var(--tds-spacing-element-6);
 }
 
 #image-adjust-dialog .tegel-slider-stack {
-  gap: var(--tds-spacing-element-8);
+  gap: var(--tds-spacing-element-4);
+  padding-bottom: var(--tds-spacing-element-2);
+}
+
+#image-adjust-dialog .tegel-slider-field {
+  display: grid;
+  gap: 0;
+}
+
+#image-adjust-dialog .tegel-slider-field-label {
+  margin: 0;
+  font: var(--tds-paragraph-02);
+  color: var(--foreground-text-subtle);
 }
 
 #image-adjust-dialog .tegel-slider-stack tds-slider {
   touch-action: none;
+  margin: 0;
+}
+
+#image-adjust-dialog .tegel-image-adjust-range {
+  width: 100%;
+  appearance: none;
+  -webkit-appearance: none;
+  touch-action: pan-x;
+  height: 2rem;
+  background: transparent;
+  cursor: pointer;
+  margin: 0;
+}
+
+#image-adjust-dialog .tegel-image-adjust-range::-webkit-slider-runnable-track {
+  height: 0.35rem;
+  border-radius: 999px;
+  background: var(--tds-slider-track-color, #9aa7c2);
+}
+
+#image-adjust-dialog .tegel-image-adjust-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 1.4rem;
+  height: 1.4rem;
+  margin-top: -0.525rem;
+  border-radius: 50%;
+  border: 2px solid var(--background-elevation-layer-01);
+  background: var(--tds-slider-thumb-color, #000);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.24);
+}
+
+#image-adjust-dialog .tegel-image-adjust-range::-moz-range-track {
+  height: 0.35rem;
+  border-radius: 999px;
+  border: 0;
+  background: var(--tds-slider-track-color, #9aa7c2);
+}
+
+#image-adjust-dialog .tegel-image-adjust-range::-moz-range-thumb {
+  width: 1.4rem;
+  height: 1.4rem;
+  border-radius: 50%;
+  border: 2px solid var(--background-elevation-layer-01);
+  background: var(--tds-slider-thumb-color, #000);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.24);
+}
+
+#image-adjust-dialog .tegel-image-adjust-range:focus-visible {
+  outline: 2px solid var(--tds-blue-600, var(--foreground-interactive-primary));
+  outline-offset: 2px;
+}
+
+@media (min-width: 721px) {
+  #image-adjust-dialog .tegel-image-adjust-layout {
+    gap: var(--tds-spacing-element-16);
+  }
 }
 
 #image-adjust-workspace-shell {
@@ -1144,11 +1213,11 @@ tds-tag.tegel-desktop-header-status {
   }
 
   #image-adjust-dialog .tegel-modal-body {
-    gap: var(--tds-spacing-element-8);
+    gap: var(--tds-spacing-element-6);
   }
 
   #image-adjust-dialog .tegel-image-adjust-layout {
-    gap: var(--tds-spacing-element-8);
+    gap: var(--tds-spacing-element-6);
   }
 
   #image-adjust-dialog .tegel-image-adjust-layout .tegel-image-preview {
@@ -1156,7 +1225,17 @@ tds-tag.tegel-desktop-header-status {
   }
 
   #image-adjust-dialog .tegel-slider-stack {
-    gap: var(--tds-spacing-element-8);
+    gap: var(--tds-spacing-element-4);
+  }
+
+  #image-adjust-dialog .tegel-slider-field-label {
+    font-size: 0.86rem;
+    line-height: 1.2;
+  }
+
+  #image-adjust-dialog .tegel-slider-stack tds-slider,
+  #image-adjust-dialog .tegel-image-adjust-range {
+    margin: 0;
   }
 
   #image-adjust-dialog .tegel-modal-actions {
