@@ -313,6 +313,26 @@ tds-modal > [slot="actions"] {
   font-size: 16px;
 }
 
+@media (max-width: 900px), (pointer: coarse) {
+  tds-text-field::part(input),
+  tds-text-field::part(textfield),
+  tds-text-field::part(value),
+  tds-text-field::part(field),
+  tds-text-field::part(control),
+  tds-dropdown::part(input),
+  tds-dropdown::part(value),
+  tds-dropdown::part(select),
+  tds-dropdown::part(field),
+  tds-dropdown::part(control),
+  tds-textarea::part(textarea),
+  tds-textarea::part(input),
+  tds-textarea::part(value),
+  tds-textarea::part(field),
+  tds-textarea::part(control) {
+    font-size: 16px;
+  }
+}
+
 .tegel-header-row {
   justify-content: space-between;
   align-items: flex-start;

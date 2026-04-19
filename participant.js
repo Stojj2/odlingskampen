@@ -7,6 +7,7 @@ const PARTICIPANT_IMAGE_STAGES = [
 ];
 
 const USE_CUSTOM_DROPDOWNS = false;
+const INPUT_ZOOM_GUARD_SELECTOR = "tds-text-field, tds-textarea, tds-dropdown, input, textarea, select";
 
 const dateTimeFormatter = new Intl.DateTimeFormat("sv-SE", {
   day: "numeric",
@@ -28,12 +29,74 @@ const runtime = {
 
 let context = null;
 const CONTROL_EVENTS = ["input", "change", "tdsInput", "tdsChange"];
+let hasBoundInputZoomGuard = false;
 
 document.addEventListener("DOMContentLoaded", async () => {
   cacheDom();
+  bindGlobalTouchInputZoomGuard();
   bindEvents();
   await syncFromServer({ allowFallbackNotice: false });
 });
+
+function shouldEnableInputZoomGuard() {
+  return window.matchMedia("(pointer: coarse)").matches || Number(navigator.maxTouchPoints || 0) > 0;
+}
+
+function getInputZoomGuardTarget(target) {
+  if (!(target instanceof Element)) {
+    return null;
+  }
+  return target.closest(INPUT_ZOOM_GUARD_SELECTOR);
+}
+
+function applyInputZoomGuardToElement(element) {
+  if (!(element instanceof HTMLElement)) {
+    return;
+  }
+
+  element.style.fontSize = "16px";
+  element.style.setProperty("-webkit-text-size-adjust", "100%");
+  const shadowRoot = element.shadowRoot || null;
+  if (!shadowRoot) {
+    return;
+  }
+
+  shadowRoot.querySelectorAll("input, textarea, select").forEach((editable) => {
+    if (editable instanceof HTMLElement) {
+      editable.style.fontSize = "16px";
+      editable.style.setProperty("-webkit-text-size-adjust", "100%");
+    }
+  });
+}
+
+function bindGlobalTouchInputZoomGuard() {
+  if (hasBoundInputZoomGuard || !shouldEnableInputZoomGuard()) {
+    return;
+  }
+  hasBoundInputZoomGuard = true;
+
+  const applyAcrossDocument = () => {
+    document.querySelectorAll(INPUT_ZOOM_GUARD_SELECTOR).forEach((element) => {
+      applyInputZoomGuardToElement(element);
+    });
+  };
+
+  const handlePotentialInputTarget = (event) => {
+    const target = getInputZoomGuardTarget(event.target);
+    if (target) {
+      applyInputZoomGuardToElement(target);
+    }
+  };
+
+  applyAcrossDocument();
+  window.requestAnimationFrame(applyAcrossDocument);
+  window.setTimeout(applyAcrossDocument, 250);
+  window.setTimeout(applyAcrossDocument, 700);
+
+  document.addEventListener("focusin", handlePotentialInputTarget, true);
+  document.addEventListener("pointerdown", handlePotentialInputTarget, true);
+  document.addEventListener("touchstart", handlePotentialInputTarget, { capture: true, passive: true });
+}
 
 function cacheDom() {
   dom.menuToggleButton = document.getElementById("participant-menu-toggle-btn");

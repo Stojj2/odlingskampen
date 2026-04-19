@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Login | Odlingskampen</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@scania/tegel@1.50.0/dist/tegel/tegel.css" />
-  <link rel="stylesheet" href="tegel-ui.css?v=20260419-login-mobile-input-zoom-01" />
+  <link rel="stylesheet" href="tegel-ui.css?v=20260419-mobile-input-zoom-global-01" />
   </head>
   <body class="scania tds-mode-light tegel-login-page">
     <a class="tegel-skip-link" href="#main-content">Hoppa till innehåll</a>
@@ -61,7 +61,9 @@
       const isIosTouchDevice =
         /iPhone|iPad|iPod/i.test(navigator.userAgent || "") ||
         (navigator.platform === "MacIntel" && Number(navigator.maxTouchPoints || 0) > 1);
+      const isTouchDevice = window.matchMedia("(pointer: coarse)").matches || Number(navigator.maxTouchPoints || 0) > 0;
       let viewportZoomLockEnabled = false;
+      let hasUserInteractedWithForm = false;
 
       function readFieldValue(element) {
         return typeof element?.value === "string" ? element.value.trim() : "";
@@ -98,6 +100,31 @@
       function applyLoginFieldSizing() {
         forceLoginFieldFontSize(usernameInput);
         forceLoginFieldFontSize(passwordInput);
+      }
+
+      function markUserInteractedWithForm() {
+        hasUserInteractedWithForm = true;
+      }
+
+      function blurLoginField(element) {
+        if (!(element instanceof HTMLElement)) {
+          return;
+        }
+
+        const editable = element.shadowRoot?.querySelector("input, textarea");
+        if (editable instanceof HTMLElement) {
+          editable.blur();
+        }
+        element.blur();
+      }
+
+      function releaseInitialFormFocus() {
+        if (!isTouchDevice || hasUserInteractedWithForm) {
+          return;
+        }
+
+        blurLoginField(usernameInput);
+        blurLoginField(passwordInput);
       }
 
       function setLoginViewportZoomLock(shouldLock) {
@@ -150,16 +177,24 @@
 
       submitButton.addEventListener("click", submitLogin);
       [usernameInput, passwordInput].forEach((field) => {
-        field?.addEventListener("touchstart", () => setLoginViewportZoomLock(true), { passive: true });
+        field?.addEventListener("touchstart", () => {
+          markUserInteractedWithForm();
+          setLoginViewportZoomLock(true);
+        }, { passive: true });
         field?.addEventListener("pointerdown", (event) => {
+          markUserInteractedWithForm();
           if (event.pointerType !== "mouse") {
             setLoginViewportZoomLock(true);
           }
         });
         field?.addEventListener("focusin", applyLoginFieldSizing);
-        field?.addEventListener("focusin", () => setLoginViewportZoomLock(true));
+        field?.addEventListener("focusin", () => {
+          setLoginViewportZoomLock(true);
+        });
         field?.addEventListener("click", applyLoginFieldSizing);
       });
+      shell.addEventListener("pointerdown", markUserInteractedWithForm);
+      shell.addEventListener("keydown", markUserInteractedWithForm);
       shell.addEventListener("keydown", (event) => {
         if (event.key === "Enter") {
           event.preventDefault();
@@ -167,14 +202,25 @@
         }
       });
 
-      requestAnimationFrame(applyLoginFieldSizing);
-      setTimeout(applyLoginFieldSizing, 250);
+      requestAnimationFrame(() => {
+        applyLoginFieldSizing();
+        releaseInitialFormFocus();
+      });
+      setTimeout(() => {
+        applyLoginFieldSizing();
+        releaseInitialFormFocus();
+      }, 250);
+      setTimeout(releaseInitialFormFocus, 700);
       if (isIosTouchDevice) {
         setLoginViewportZoomLock(true);
-        window.addEventListener("pageshow", () => setLoginViewportZoomLock(true));
+        window.addEventListener("pageshow", () => {
+          setLoginViewportZoomLock(true);
+          releaseInitialFormFocus();
+        });
         document.addEventListener("visibilitychange", () => {
           if (!document.hidden) {
             setLoginViewportZoomLock(true);
+            releaseInitialFormFocus();
           }
         });
       }

@@ -6,6 +6,7 @@ const VALID_VIEWS = new Set(["settings", "operator", "measurement", "presenter",
 const CURRENT_VIEW = getCurrentView();
 const DISPLAY_VIEW = CURRENT_VIEW === "board";
 const CONTROL_EVENTS = ["input", "change", "tdsInput", "tdsChange"];
+const INPUT_ZOOM_GUARD_SELECTOR = "tds-text-field, tds-textarea, tds-dropdown, input, textarea, select";
 const POLL_INTERVAL_MS = DISPLAY_VIEW ? 1500 : 3500;
 const SCOREBOARD_MOVE_DURATION_MS = 1800;
 const SCOREBOARD_ENTER_DURATION_MS = 900;
@@ -104,9 +105,11 @@ const runtime = {
 
 let state = createDefaultState();
 let standings = getStandings(state);
+let hasBoundInputZoomGuard = false;
 
 document.addEventListener("DOMContentLoaded", () => {
   cacheDom();
+  bindGlobalTouchInputZoomGuard();
   configureLayout();
   state = loadCachedState();
   standings = getStandings(state);
@@ -127,6 +130,66 @@ document.addEventListener("DOMContentLoaded", () => {
 function getCurrentView() {
   const rawView = new URLSearchParams(window.location.search).get("view") || "operator";
   return VALID_VIEWS.has(rawView) ? rawView : "operator";
+}
+
+function shouldEnableInputZoomGuard() {
+  return window.matchMedia("(pointer: coarse)").matches || Number(navigator.maxTouchPoints || 0) > 0;
+}
+
+function getInputZoomGuardTarget(target) {
+  if (!(target instanceof Element)) {
+    return null;
+  }
+  return target.closest(INPUT_ZOOM_GUARD_SELECTOR);
+}
+
+function applyInputZoomGuardToElement(element) {
+  if (!(element instanceof HTMLElement)) {
+    return;
+  }
+
+  element.style.fontSize = "16px";
+  element.style.setProperty("-webkit-text-size-adjust", "100%");
+  const shadowRoot = element.shadowRoot || null;
+  if (!shadowRoot) {
+    return;
+  }
+
+  shadowRoot.querySelectorAll("input, textarea, select").forEach((editable) => {
+    if (editable instanceof HTMLElement) {
+      editable.style.fontSize = "16px";
+      editable.style.setProperty("-webkit-text-size-adjust", "100%");
+    }
+  });
+}
+
+function bindGlobalTouchInputZoomGuard() {
+  if (hasBoundInputZoomGuard || !shouldEnableInputZoomGuard()) {
+    return;
+  }
+  hasBoundInputZoomGuard = true;
+
+  const applyAcrossDocument = () => {
+    document.querySelectorAll(INPUT_ZOOM_GUARD_SELECTOR).forEach((element) => {
+      applyInputZoomGuardToElement(element);
+    });
+  };
+
+  const handlePotentialInputTarget = (event) => {
+    const target = getInputZoomGuardTarget(event.target);
+    if (target) {
+      applyInputZoomGuardToElement(target);
+    }
+  };
+
+  applyAcrossDocument();
+  window.requestAnimationFrame(applyAcrossDocument);
+  window.setTimeout(applyAcrossDocument, 250);
+  window.setTimeout(applyAcrossDocument, 700);
+
+  document.addEventListener("focusin", handlePotentialInputTarget, true);
+  document.addEventListener("pointerdown", handlePotentialInputTarget, true);
+  document.addEventListener("touchstart", handlePotentialInputTarget, { capture: true, passive: true });
 }
 
 function cacheDom() {
