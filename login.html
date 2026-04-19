@@ -56,6 +56,12 @@
       const submitButton = document.getElementById("login-submit");
       const errorNode = document.getElementById("login-error");
       const queryNextPath = new URLSearchParams(window.location.search).get("next") || "";
+      const viewportMeta = document.querySelector('meta[name="viewport"]');
+      const defaultViewportContent = viewportMeta?.getAttribute("content") || "width=device-width, initial-scale=1.0";
+      const isIosTouchDevice =
+        /iPhone|iPad|iPod/i.test(navigator.userAgent || "") ||
+        (navigator.platform === "MacIntel" && Number(navigator.maxTouchPoints || 0) > 1);
+      let viewportZoomLockEnabled = false;
 
       function readFieldValue(element) {
         return typeof element?.value === "string" ? element.value.trim() : "";
@@ -94,6 +100,25 @@
         forceLoginFieldFontSize(passwordInput);
       }
 
+      function setLoginViewportZoomLock(shouldLock) {
+        if (!viewportMeta || !isIosTouchDevice || viewportZoomLockEnabled === Boolean(shouldLock)) {
+          return;
+        }
+
+        const baseParts = defaultViewportContent
+          .split(",")
+          .map((part) => part.trim())
+          .filter(Boolean)
+          .filter((part) => !/^maximum-scale\s*=/i.test(part));
+
+        if (shouldLock) {
+          baseParts.push("maximum-scale=1");
+        }
+
+        viewportMeta.setAttribute("content", baseParts.join(", "));
+        viewportZoomLockEnabled = Boolean(shouldLock);
+      }
+
       async function submitLogin() {
         setError("");
         submitButton.setAttribute("disabled", "");
@@ -125,7 +150,14 @@
 
       submitButton.addEventListener("click", submitLogin);
       [usernameInput, passwordInput].forEach((field) => {
+        field?.addEventListener("touchstart", () => setLoginViewportZoomLock(true), { passive: true });
+        field?.addEventListener("pointerdown", (event) => {
+          if (event.pointerType !== "mouse") {
+            setLoginViewportZoomLock(true);
+          }
+        });
         field?.addEventListener("focusin", applyLoginFieldSizing);
+        field?.addEventListener("focusin", () => setLoginViewportZoomLock(true));
         field?.addEventListener("click", applyLoginFieldSizing);
       });
       shell.addEventListener("keydown", (event) => {
@@ -137,6 +169,15 @@
 
       requestAnimationFrame(applyLoginFieldSizing);
       setTimeout(applyLoginFieldSizing, 250);
+      if (isIosTouchDevice) {
+        setLoginViewportZoomLock(true);
+        window.addEventListener("pageshow", () => setLoginViewportZoomLock(true));
+        document.addEventListener("visibilitychange", () => {
+          if (!document.hidden) {
+            setLoginViewportZoomLock(true);
+          }
+        });
+      }
     </script>
   </body>
 </html>
