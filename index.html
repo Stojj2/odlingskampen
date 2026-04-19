@@ -16,12 +16,15 @@
   <link rel="stylesheet" href="tegel-ui.css?v=20260416-presentation-background-02" />
   </head>
   <body class="scania tds-mode-light tegel-page">
+    <a class="tegel-skip-link" href="#main-content">Hoppa till innehåll</a>
     <tds-header class="tegel-app-header">
       <tds-header-hamburger
         id="menu-toggle-btn"
         class="tegel-mobile-menu-trigger"
         slot="hamburger"
         tds-aria-label="Öppna meny"
+        aria-controls="mobile-topbar-menu"
+        aria-expanded="false"
       ></tds-header-hamburger>
       <tds-header-title slot="title">Odlingskampen</tds-header-title>
       <tds-header-item class="tegel-desktop-header-item" selected>
@@ -41,7 +44,7 @@
       </tds-header-item>
     </tds-header>
 
-    <tds-side-menu id="mobile-topbar-menu">
+    <tds-side-menu id="mobile-topbar-menu" aria-hidden="true">
       <tds-side-menu-overlay slot="overlay"></tds-side-menu-overlay>
       <tds-side-menu-close-button slot="close-button"></tds-side-menu-close-button>
       <tds-side-menu-item selected>
@@ -62,9 +65,9 @@
     </tds-side-menu>
 
     <div class="tegel-shell" id="workbench-shell">
-      <tds-message id="global-notice" variant="information" minimal no-icon hidden></tds-message>
+      <tds-message id="global-notice" variant="information" minimal no-icon hidden role="status" aria-live="polite"></tds-message>
 
-      <main class="tegel-page-grid">
+      <main id="main-content" class="tegel-page-grid" tabindex="-1">
         <section class="view-page" id="settings-view">
           <div class="tegel-page-grid tegel-page-grid--settings">
             <section class="tegel-section">
@@ -103,7 +106,7 @@
                     <p id="settings-presentation-copy">Publikskärmen visar för närvarande leaderboarden.</p>
                   </div>
                 </tds-card>
-                <tds-message id="operator-message" variant="information" minimal no-icon hidden></tds-message>
+                <tds-message id="operator-message" variant="information" minimal no-icon hidden role="status" aria-live="polite"></tds-message>
               </div>
             </section>
 
@@ -356,15 +359,51 @@
         <div class="tegel-image-adjust-layout">
           <div class="tegel-stack">
             <p class="is-hidden" aria-hidden="true">Bildyta</p>
-            <div class="tegel-image-preview image-adjust-preview-shell image-adjust-preview-shell--workspace">
+            <div class="tegel-image-preview image-adjust-preview-shell image-adjust-preview-shell--workspace" id="image-adjust-workspace-shell">
               <img id="image-adjust-preview" class="image-adjust-preview-image image-adjust-preview-image--workspace" alt="" hidden />
               <div class="empty-state" id="image-adjust-empty">Ingen bild vald.</div>
             </div>
           </div>
           <div class="tegel-slider-stack">
-            <tds-slider id="image-adjust-scale" label="Zoom" min="1" max="2.5" step="0.01" value="1"></tds-slider>
-            <tds-slider id="image-adjust-offset-x" label="Flytta sidled" min="-35" max="35" step="1" value="0"></tds-slider>
-            <tds-slider id="image-adjust-offset-y" label="Flytta höjdled" min="-35" max="35" step="1" value="0"></tds-slider>
+            <div class="tegel-slider-field">
+              <p class="tegel-slider-field-label">Zoom</p>
+              <input
+                id="image-adjust-scale"
+                class="tegel-image-adjust-range"
+                type="range"
+                aria-label="Zoom"
+                min="1"
+                max="2.5"
+                step="0.01"
+                value="1"
+              />
+            </div>
+            <div class="tegel-slider-field">
+              <p class="tegel-slider-field-label">Flytta sidled</p>
+              <input
+                id="image-adjust-offset-x"
+                class="tegel-image-adjust-range"
+                type="range"
+                aria-label="Flytta sidled"
+                min="-35"
+                max="35"
+                step="1"
+                value="0"
+              />
+            </div>
+            <div class="tegel-slider-field">
+              <p class="tegel-slider-field-label">Flytta höjdled</p>
+              <input
+                id="image-adjust-offset-y"
+                class="tegel-image-adjust-range"
+                type="range"
+                aria-label="Flytta höjdled"
+                min="-35"
+                max="35"
+                step="1"
+                value="0"
+              />
+            </div>
           </div>
         </div>
       </div>
@@ -449,3 +488,4 @@
     <script src="app.js?v=20260416-media-preload-01"></script>
   </body>
 </html>
+

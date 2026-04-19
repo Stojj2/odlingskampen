@@ -94,6 +94,7 @@ const runtime = {
   boardDeferredState: null,
   boardDeferredApplyHandle: null,
   imageAdjustSession: null,
+  isSyncingImageAdjustControls: false,
   participantSearchQuery: "",
   measurementSearchQuery: "",
   measurementUnlockedParticipantId: "",
@@ -272,6 +273,7 @@ function cacheDom() {
   dom.imageAdjustCopy = document.getElementById("image-adjust-copy");
   dom.imageAdjustPreview = document.getElementById("image-adjust-preview");
   dom.imageAdjustEmpty = document.getElementById("image-adjust-empty");
+  dom.imageAdjustWorkspaceShell = document.getElementById("image-adjust-workspace-shell");
   dom.imageAdjustScale = document.getElementById("image-adjust-scale");
   dom.imageAdjustOffsetX = document.getElementById("image-adjust-offset-x");
   dom.imageAdjustOffsetY = document.getElementById("image-adjust-offset-y");
@@ -1043,6 +1045,7 @@ function bindEvents() {
   bindControlEvents(dom.imageAdjustScale, syncImageAdjustPreviewFromControls);
   bindControlEvents(dom.imageAdjustOffsetX, syncImageAdjustPreviewFromControls);
   bindControlEvents(dom.imageAdjustOffsetY, syncImageAdjustPreviewFromControls);
+  bindImageAdjustTouchGuards();
 
   if (dom.imageAdjustCancelButton) {
     dom.imageAdjustCancelButton.addEventListener("click", closeImageAdjustDialog);
@@ -1055,8 +1058,16 @@ function bindEvents() {
   }
 
   bindModalCloseEvents(dom.imageAdjustDialog, () => {
+    setImageAdjustDragging(false);
     runtime.imageAdjustSession = null;
   });
+
+  if (dom.imageAdjustWorkspaceShell instanceof HTMLElement) {
+    dom.imageAdjustWorkspaceShell.addEventListener("pointerdown", startImageAdjustDrag);
+    dom.imageAdjustWorkspaceShell.addEventListener("pointermove", moveImageAdjustDrag);
+    dom.imageAdjustWorkspaceShell.addEventListener("pointerup", endImageAdjustDrag);
+    dom.imageAdjustWorkspaceShell.addEventListener("pointercancel", endImageAdjustDrag);
+  }
 
   document.addEventListener("visibilitychange", () => {
     if (!document.hidden) {
@@ -1404,6 +1415,7 @@ function openImageAdjustDialog(participantId, stageKey, imageValue = null) {
     participantId,
     stageKey,
     image,
+    drag: null,
   };
 
   if (dom.imageAdjustTitle instanceof HTMLElement) {
@@ -1411,6 +1423,7 @@ function openImageAdjustDialog(participantId, stageKey, imageValue = null) {
   }
   if (dom.imageAdjustCopy instanceof HTMLElement) {
     dom.imageAdjustCopy.textContent = "";
+    dom.imageAdjustCopy.hidden = true;
   }
 
   syncImageAdjustControls(image);
@@ -1420,13 +1433,18 @@ function openImageAdjustDialog(participantId, stageKey, imageValue = null) {
 
 function syncImageAdjustControls(imageValue) {
   const image = normalizeParticipantImage(imageValue);
-  setControlValue(dom.imageAdjustScale, String(image.scale));
-  setControlValue(dom.imageAdjustOffsetX, String(image.positionX));
-  setControlValue(dom.imageAdjustOffsetY, String(image.positionY));
+  runtime.isSyncingImageAdjustControls = true;
+  try {
+    setControlValue(dom.imageAdjustScale, String(image.scale));
+    setControlValue(dom.imageAdjustOffsetX, String(image.positionX));
+    setControlValue(dom.imageAdjustOffsetY, String(image.positionY));
+  } finally {
+    runtime.isSyncingImageAdjustControls = false;
+  }
 }
 
 function syncImageAdjustPreviewFromControls() {
-  if (!runtime.imageAdjustSession) {
+  if (!runtime.imageAdjustSession || runtime.isSyncingImageAdjustControls) {
     return;
   }
 
@@ -1436,15 +1454,7 @@ function syncImageAdjustPreviewFromControls() {
     getControlValue(dom.imageAdjustOffsetY) || runtime.imageAdjustSession.image.positionY,
     getControlValue(dom.imageAdjustScale) || runtime.imageAdjustSession.image.scale,
   );
-
-  runtime.imageAdjustSession = {
-    ...runtime.imageAdjustSession,
-    image: nextImage,
-  };
-
-  const participant = state.participants.find((entry) => entry.id === runtime.imageAdjustSession.participantId) || null;
-  const stage = getParticipantImageStage(runtime.imageAdjustSession.stageKey);
-  renderImageAdjustPreview(nextImage, participant ? participant.name : "", stage.label);
+  updateImageAdjustSessionImage(nextImage);
 }
 
 function renderImageAdjustPreview(imageValue, participantName, stageLabel) {
@@ -1465,8 +1475,107 @@ function renderImageAdjustPreview(imageValue, participantName, stageLabel) {
 }
 
 function closeImageAdjustDialog() {
+  setImageAdjustDragging(false);
   runtime.imageAdjustSession = null;
   closeModalElement(dom.imageAdjustDialog);
+}
+
+function startImageAdjustDrag(event) {
+  if (!(dom.imageAdjustWorkspaceShell instanceof HTMLElement) || !runtime.imageAdjustSession) {
+    return;
+  }
+
+  if (event.pointerType === "mouse" && event.button !== 0) {
+    return;
+  }
+
+  const image = normalizeParticipantImage(runtime.imageAdjustSession.image);
+  if (!image.path) {
+    return;
+  }
+
+  const rect = dom.imageAdjustWorkspaceShell.getBoundingClientRect();
+  runtime.imageAdjustSession = {
+    ...runtime.imageAdjustSession,
+    drag: {
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      startOffsetX: image.positionX,
+      startOffsetY: image.positionY,
+      width: rect.width || 1,
+      height: rect.height || 1,
+    },
+  };
+
+  setImageAdjustDragging(true);
+  dom.imageAdjustWorkspaceShell.setPointerCapture?.(event.pointerId);
+  event.preventDefault();
+}
+
+function moveImageAdjustDrag(event) {
+  const drag = runtime.imageAdjustSession && runtime.imageAdjustSession.drag;
+  if (!drag || event.pointerId !== drag.pointerId || !runtime.imageAdjustSession) {
+    return;
+  }
+
+  const deltaX = ((event.clientX - drag.startX) / drag.width) * 100;
+  const deltaY = ((event.clientY - drag.startY) / drag.height) * 100;
+  const nextImage = createParticipantImage(
+    runtime.imageAdjustSession.image.path,
+    drag.startOffsetX + deltaX,
+    drag.startOffsetY + deltaY,
+    runtime.imageAdjustSession.image.scale,
+  );
+
+  updateImageAdjustSessionImage(nextImage, { skipControlSync: true });
+  event.preventDefault();
+}
+
+function endImageAdjustDrag(event) {
+  const drag = runtime.imageAdjustSession && runtime.imageAdjustSession.drag;
+  if (!drag || event.pointerId !== drag.pointerId || !runtime.imageAdjustSession) {
+    return;
+  }
+
+  if (dom.imageAdjustWorkspaceShell instanceof HTMLElement) {
+    dom.imageAdjustWorkspaceShell.releasePointerCapture?.(event.pointerId);
+  }
+
+  runtime.imageAdjustSession = {
+    ...runtime.imageAdjustSession,
+    drag: null,
+  };
+  syncImageAdjustControls(runtime.imageAdjustSession.image);
+  setImageAdjustDragging(false);
+}
+
+function updateImageAdjustSessionImage(imageValue, options = {}) {
+  if (!runtime.imageAdjustSession) {
+    return;
+  }
+
+  const skipControlSync = Boolean(options.skipControlSync);
+  const nextImage = normalizeParticipantImage(imageValue);
+  runtime.imageAdjustSession = {
+    ...runtime.imageAdjustSession,
+    image: nextImage,
+  };
+  if (!skipControlSync) {
+    syncImageAdjustControls(nextImage);
+  }
+
+  const participant = state.participants.find((entry) => entry.id === runtime.imageAdjustSession.participantId) || null;
+  const stage = getParticipantImageStage(runtime.imageAdjustSession.stageKey);
+  renderImageAdjustPreview(nextImage, participant ? participant.name : "", stage.label);
+}
+
+function setImageAdjustDragging(isDragging) {
+  if (!(dom.imageAdjustWorkspaceShell instanceof HTMLElement)) {
+    return;
+  }
+
+  dom.imageAdjustWorkspaceShell.classList.toggle("is-dragging", Boolean(isDragging));
 }
 
 async function saveImageAdjustDialog() {
@@ -4559,12 +4668,17 @@ function setTagText(element, text) {
 }
 
 function bindModalCloseEvents(modal, onClose) {
-  if (!modal || typeof onClose !== "function") {
+  if (!modal) {
     return;
   }
 
   ["close", "tdsClose", "tds-close", "close-button-clicked", "modalClosed"].forEach((eventName) => {
-    modal.addEventListener(eventName, onClose);
+    modal.addEventListener(eventName, () => {
+      if (typeof onClose === "function") {
+        onClose();
+      }
+      syncBodyModalLock();
+    });
   });
 }
 
@@ -4572,28 +4686,20 @@ function openModalElement(modal) {
   if (!modal) {
     return;
   }
-
-  if (typeof modal.show === "function") {
-    modal.show();
-    return;
-  }
-
-  if (typeof modal.openModal === "function") {
-    modal.openModal();
-    return;
-  }
-
-  if (typeof modal.showModal === "function") {
-    modal.showModal();
-    return;
-  }
-
-  if ("open" in modal) {
-    modal.open = true;
-  }
-  modal.show = true;
-  modal.setAttribute("open", "");
+  setBodyModalLock(true);
+  modal.classList.remove("hide");
+  modal.classList.add("show");
+  modal.hidden = false;
+  modal.removeAttribute("hide");
   modal.setAttribute("show", "");
+  modal.setAttribute("open", "");
+
+  const backdrop = modal.shadowRoot?.querySelector(".tds-modal-backdrop");
+  if (backdrop instanceof HTMLElement) {
+    backdrop.style.display = "block";
+  }
+
+  window.setTimeout(syncBodyModalLock, 0);
 }
 
 function closeModalElement(modal) {
@@ -4601,31 +4707,137 @@ function closeModalElement(modal) {
     return;
   }
 
-  if (typeof modal.hide === "function") {
-    modal.hide();
-    return;
-  }
-
-  if (typeof modal.dismiss === "function") {
-    modal.dismiss();
-    return;
-  }
-
-  if (typeof modal.closeModal === "function") {
-    modal.closeModal();
-    return;
-  }
-
-  if (typeof modal.close === "function") {
-    modal.close();
-    return;
-  }
-
-  if ("open" in modal) {
-    modal.open = false;
-  }
-  modal.show = false;
+  modal.classList.remove("show");
+  modal.classList.add("hide");
+  modal.setAttribute("hide", "");
   modal.removeAttribute("open");
   modal.removeAttribute("show");
+
+  const backdrop = modal.shadowRoot?.querySelector(".tds-modal-backdrop");
+  if (backdrop instanceof HTMLElement) {
+    backdrop.style.display = "none";
+  }
+
+  modal.dispatchEvent(new Event("close"));
+  syncBodyModalLock();
+}
+
+function bindImageAdjustTouchGuards() {
+  const controls = [dom.imageAdjustScale, dom.imageAdjustOffsetX, dom.imageAdjustOffsetY].filter(
+    (control) => control instanceof HTMLElement,
+  );
+  const mobileTouchContext = window.matchMedia("(max-width: 720px), (pointer: coarse)").matches;
+
+  controls.forEach((control) => {
+    if (control instanceof HTMLInputElement && control.type === "range") {
+      if (!mobileTouchContext) {
+        return;
+      }
+      control.style.touchAction = "none";
+      const handleRangeTouch = (event) => {
+        if (!runtime.imageAdjustSession) {
+          return;
+        }
+        const updated = updateRangeValueFromTouch(control, event);
+        if (updated) {
+          event.preventDefault();
+          event.stopPropagation();
+        }
+      };
+      control.addEventListener("touchstart", handleRangeTouch, { passive: false });
+      control.addEventListener("touchmove", handleRangeTouch, { passive: false });
+      control.addEventListener("touchend", handleRangeTouch, { passive: false });
+      return;
+    }
+
+    control.style.touchAction = "none";
+    control.addEventListener(
+      "touchmove",
+      (event) => {
+        if (runtime.imageAdjustSession) {
+          event.preventDefault();
+        }
+      },
+      { passive: false },
+    );
+  });
+}
+
+function updateRangeValueFromTouch(control, event) {
+  if (!(control instanceof HTMLInputElement) || control.type !== "range") {
+    return false;
+  }
+
+  const touchList =
+    event.touches && event.touches.length
+      ? event.touches
+      : event.changedTouches && event.changedTouches.length
+        ? event.changedTouches
+        : null;
+  const touch = touchList ? touchList[0] : null;
+  if (!touch) {
+    return false;
+  }
+
+  const rect = control.getBoundingClientRect();
+  if (!rect.width) {
+    return false;
+  }
+
+  const min = Number(control.min || "0");
+  const max = Number(control.max || "100");
+  if (!Number.isFinite(min) || !Number.isFinite(max) || max <= min) {
+    return false;
+  }
+
+  let ratio = (touch.clientX - rect.left) / rect.width;
+  ratio = Math.min(1, Math.max(0, ratio));
+  let value = min + ratio * (max - min);
+
+  const stepRaw = control.step || "1";
+  const step = Number(stepRaw);
+  if (Number.isFinite(step) && step > 0) {
+    const snapped = Math.round((value - min) / step) * step + min;
+    const precision = stepRaw.includes(".") ? stepRaw.split(".")[1].length : 0;
+    value = Number(snapped.toFixed(Math.max(0, precision)));
+  }
+
+  const nextValue = String(value);
+  if (control.value === nextValue) {
+    return true;
+  }
+
+  control.value = nextValue;
+  control.dispatchEvent(new Event("input", { bubbles: true }));
+  return true;
+}
+
+function hasOpenModal() {
+  const modalNodes = Array.from(document.querySelectorAll("tds-modal"));
+  return modalNodes.some((modal) => {
+    if (!(modal instanceof HTMLElement)) {
+      return false;
+    }
+    if (modal.classList.contains("show")) {
+      return true;
+    }
+    if (modal.hasAttribute("open") || modal.hasAttribute("show")) {
+      return true;
+    }
+    return false;
+  });
+}
+
+function setBodyModalLock(shouldLock) {
+  if (document.body instanceof HTMLElement) {
+    document.body.classList.toggle("tegel-modal-open", Boolean(shouldLock));
+  }
+  if (document.documentElement instanceof HTMLElement) {
+    document.documentElement.classList.toggle("tegel-modal-open", Boolean(shouldLock));
+  }
+}
+
+function syncBodyModalLock() {
+  setBodyModalLock(hasOpenModal());
 }
 

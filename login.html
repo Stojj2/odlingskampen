@@ -1,18 +1,19 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="sv">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Login | Odlingskampen</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@scania/tegel@1.50.0/dist/tegel/tegel.css" />
-  <link rel="stylesheet" href="tegel-ui.css?v=20260416-login-mobile-input-01" />
+  <link rel="stylesheet" href="tegel-ui.css?v=20260419-login-mobile-input-zoom-01" />
   </head>
   <body class="scania tds-mode-light tegel-login-page">
+    <a class="tegel-skip-link" href="#main-content">Hoppa till innehåll</a>
     <tds-header class="tegel-app-header">
       <tds-header-title slot="title">Odlingskampen</tds-header-title>
     </tds-header>
 
-    <main class="tegel-login-shell">
+    <main id="main-content" class="tegel-login-shell" tabindex="-1">
       <tds-card class="tegel-login-card" header="Login" subheader="Logga in med ditt användarnamn och lösenord.">
         <div slot="body" class="tegel-login-content" id="login-shell">
           <div class="tegel-login-form">
@@ -38,7 +39,7 @@
         </div>
         <div slot="actions" class="tegel-login-actions">
           <tds-button id="login-submit" size="md" text="Logga in" type="button"></tds-button>
-          <tds-message id="login-error" variant="error" hidden></tds-message>
+          <tds-message id="login-error" variant="error" hidden role="alert" aria-live="assertive"></tds-message>
         </div>
       </tds-card>
     </main>
@@ -67,6 +68,30 @@
 
         errorNode.textContent = message;
         errorNode.hidden = !message;
+      }
+
+      function forceLoginFieldFontSize(element) {
+        if (!(element instanceof HTMLElement)) {
+          return;
+        }
+
+        element.style.fontSize = "16px";
+        element.style.setProperty("-webkit-text-size-adjust", "100%");
+        const shadowRoot = element.shadowRoot || null;
+        if (!shadowRoot) {
+          return;
+        }
+
+        const editable = shadowRoot.querySelector("input, textarea");
+        if (editable instanceof HTMLElement) {
+          editable.style.fontSize = "16px";
+          editable.style.setProperty("-webkit-text-size-adjust", "100%");
+        }
+      }
+
+      function applyLoginFieldSizing() {
+        forceLoginFieldFontSize(usernameInput);
+        forceLoginFieldFontSize(passwordInput);
       }
 
       async function submitLogin() {
@@ -99,12 +124,20 @@
       }
 
       submitButton.addEventListener("click", submitLogin);
+      [usernameInput, passwordInput].forEach((field) => {
+        field?.addEventListener("focusin", applyLoginFieldSizing);
+        field?.addEventListener("click", applyLoginFieldSizing);
+      });
       shell.addEventListener("keydown", (event) => {
         if (event.key === "Enter") {
           event.preventDefault();
           submitLogin();
         }
       });
+
+      requestAnimationFrame(applyLoginFieldSizing);
+      setTimeout(applyLoginFieldSizing, 250);
     </script>
   </body>
 </html>
+

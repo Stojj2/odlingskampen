@@ -302,6 +302,17 @@ tds-modal > [slot="actions"] {
   width: 100%;
 }
 
+.tegel-login-page,
+.tegel-login-page * {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+.tegel-login-form tds-text-field,
+.tegel-login-form tds-dropdown {
+  font-size: 16px;
+}
+
 .tegel-header-row {
   justify-content: space-between;
   align-items: flex-start;
@@ -1292,9 +1303,13 @@ tds-tag.tegel-desktop-header-status {
   .tegel-login-form tds-text-field::part(input),
   .tegel-login-form tds-text-field::part(textfield),
   .tegel-login-form tds-text-field::part(value),
+  .tegel-login-form tds-text-field::part(field),
+  .tegel-login-form tds-text-field::part(control),
   .tegel-login-form tds-dropdown::part(input),
   .tegel-login-form tds-dropdown::part(value),
-  .tegel-login-form tds-dropdown::part(select) {
+  .tegel-login-form tds-dropdown::part(select),
+  .tegel-login-form tds-dropdown::part(field),
+  .tegel-login-form tds-dropdown::part(control) {
     font-size: 16px;
   }
 }
