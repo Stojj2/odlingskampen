@@ -114,6 +114,8 @@ Anvand `compose.yaml` som stackfil.
 - `uploads/` innehaller deltagarnas bilder
 - om containern startas om loggas aktiva sessioner ut, eftersom sessionerna ligger i minnet
 - Tegel laddas fortfarande fran CDN, sa servern behover internet om ni inte flyttar de filerna lokalt senare
+- videouppladdningens maxstorlek styrs av `ODLINGSKAMPEN_MAX_VIDEO_UPLOAD_MB` (standard 200 MB)
+- om ni kor bakom reverse proxy (Nginx/Traefik/Caddy) maste proxy tillata tillrackligt stora request-bodies, annars far ni oftast `413`
 
 ## Hur appen fungerar
 

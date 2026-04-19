@@ -7,6 +7,7 @@ services:
     environment:
       TZ: Europe/Stockholm
       PYTHONUNBUFFERED: "1"
+      ODLINGSKAMPEN_MAX_VIDEO_UPLOAD_MB: "200"
     ports:
       - "8180:8080"
     volumes:

@@ -50,6 +50,7 @@
       defineCustomElements(window);
     </script>
     <script>
+      const mainContent = document.getElementById("main-content");
       const shell = document.getElementById("login-shell");
       const usernameInput = document.getElementById("username");
       const passwordInput = document.getElementById("password");
@@ -64,6 +65,8 @@
       const isTouchDevice = window.matchMedia("(pointer: coarse)").matches || Number(navigator.maxTouchPoints || 0) > 0;
       let viewportZoomLockEnabled = false;
       let hasUserInteractedWithForm = false;
+      const initialFocusGuardStartedAt = Date.now();
+      const INITIAL_FOCUS_GUARD_WINDOW_MS = 5000;
 
       function readFieldValue(element) {
         return typeof element?.value === "string" ? element.value.trim() : "";
@@ -106,6 +109,41 @@
         hasUserInteractedWithForm = true;
       }
 
+      function isWithinFieldHost(target, fieldHost) {
+        if (!(fieldHost instanceof HTMLElement) || !(target instanceof Node)) {
+          return false;
+        }
+
+        if (target === fieldHost || fieldHost.contains(target)) {
+          return true;
+        }
+
+        const shadowRoot = fieldHost.shadowRoot;
+        return Boolean(shadowRoot && shadowRoot.contains(target));
+      }
+
+      function isFocusInsideLoginFields(event) {
+        const path = typeof event.composedPath === "function" ? event.composedPath() : [];
+        if (path.includes(usernameInput) || path.includes(passwordInput)) {
+          return true;
+        }
+
+        const target = event.target;
+        return isWithinFieldHost(target, usernameInput) || isWithinFieldHost(target, passwordInput);
+      }
+
+      function focusMainContentSilently() {
+        if (!(mainContent instanceof HTMLElement)) {
+          return;
+        }
+
+        try {
+          mainContent.focus({ preventScroll: true });
+        } catch {
+          mainContent.focus();
+        }
+      }
+
       function blurLoginField(element) {
         if (!(element instanceof HTMLElement)) {
           return;
@@ -125,6 +163,24 @@
 
         blurLoginField(usernameInput);
         blurLoginField(passwordInput);
+        focusMainContentSilently();
+      }
+
+      function shouldGuardInitialFocus() {
+        return (
+          isTouchDevice &&
+          !hasUserInteractedWithForm &&
+          Date.now() - initialFocusGuardStartedAt <= INITIAL_FOCUS_GUARD_WINDOW_MS
+        );
+      }
+
+      function handleUnexpectedInitialFieldFocus(event) {
+        if (!shouldGuardInitialFocus() || !isFocusInsideLoginFields(event)) {
+          return;
+        }
+
+        releaseInitialFormFocus();
+        requestAnimationFrame(releaseInitialFormFocus);
       }
 
       function setLoginViewportZoomLock(shouldLock) {
@@ -176,6 +232,23 @@
       }
 
       submitButton.addEventListener("click", submitLogin);
+      document.addEventListener("focusin", handleUnexpectedInitialFieldFocus, true);
+      document.addEventListener(
+        "touchstart",
+        () => {
+          markUserInteractedWithForm();
+        },
+        { capture: true, passive: true },
+      );
+      document.addEventListener(
+        "pointerdown",
+        (event) => {
+          if (event.pointerType !== "mouse") {
+            markUserInteractedWithForm();
+          }
+        },
+        true,
+      );
       [usernameInput, passwordInput].forEach((field) => {
         field?.addEventListener("touchstart", () => {
           markUserInteractedWithForm();

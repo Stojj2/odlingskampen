@@ -626,12 +626,6 @@ function openStandingsImageDialog(trigger) {
 }
 
 function closeStandingsImageDialog() {
-  const internalCloseButton = dom.standingsImageDialog?.shadowRoot?.querySelector(".tds-modal-close");
-  if (internalCloseButton instanceof HTMLElement) {
-    internalCloseButton.click();
-    return;
-  }
-
   closeModalElement(dom.standingsImageDialog);
 }
 
@@ -1920,7 +1914,7 @@ function bindModalCloseEvents(modal, onClose) {
     return;
   }
 
-  ["close", "tdsClose", "tds-close"].forEach((eventName) => {
+  ["close", "tdsClose", "tds-close", "modalClosed"].forEach((eventName) => {
     modal.addEventListener(eventName, () => {
       if (typeof onClose === "function") {
         onClose();
@@ -1934,17 +1928,25 @@ function openModalElement(modal) {
   if (!modal) {
     return;
   }
+
   setBodyModalLock(true);
-  modal.classList.remove("hide");
-  modal.classList.add("show");
+  modal.classList.remove("hide", "show");
   modal.hidden = false;
   modal.removeAttribute("hide");
-  modal.setAttribute("show", "");
-  modal.setAttribute("open", "");
+  modal.removeAttribute("show");
 
-  const backdrop = modal.shadowRoot?.querySelector(".tds-modal-backdrop");
-  if (backdrop instanceof HTMLElement) {
-    backdrop.style.display = "block";
+  if (typeof modal.showModal === "function") {
+    try {
+      const result = modal.showModal();
+      if (result && typeof result.catch === "function") {
+        result.catch(() => {});
+      }
+    } catch {}
+  } else {
+    if ("open" in modal) {
+      modal.open = true;
+    }
+    modal.setAttribute("open", "");
   }
 
   window.setTimeout(syncBodyModalLock, 0);
@@ -1955,19 +1957,32 @@ function closeModalElement(modal) {
     return;
   }
 
-  modal.classList.remove("show");
-  modal.classList.add("hide");
-  modal.setAttribute("hide", "");
-  modal.removeAttribute("open");
+  modal.classList.remove("show", "hide");
   modal.removeAttribute("show");
+  modal.removeAttribute("hide");
 
-  const backdrop = modal.shadowRoot?.querySelector(".tds-modal-backdrop");
-  if (backdrop instanceof HTMLElement) {
-    backdrop.style.display = "none";
+  let usedModalCloseApi = false;
+  if (typeof modal.close === "function") {
+    usedModalCloseApi = true;
+    try {
+      const result = modal.close();
+      if (result && typeof result.catch === "function") {
+        result.catch(() => {});
+      }
+    } catch {}
   }
 
-  modal.dispatchEvent(new Event("close"));
-  syncBodyModalLock();
+  if ("open" in modal) {
+    modal.open = false;
+  }
+  modal.removeAttribute("open");
+  modal.hidden = true;
+
+  if (!usedModalCloseApi) {
+    modal.dispatchEvent(new Event("close"));
+  }
+
+  window.setTimeout(syncBodyModalLock, 0);
 }
 
 function bindImageAdjustTouchGuards() {
@@ -2066,13 +2081,8 @@ function hasOpenModal() {
     if (!(modal instanceof HTMLElement)) {
       return false;
     }
-    if (modal.classList.contains("show")) {
-      return true;
-    }
-    if (modal.hasAttribute("open") || modal.hasAttribute("show")) {
-      return true;
-    }
-    return false;
+    const hasOpenProperty = "open" in modal && typeof modal.open === "boolean" ? modal.open : false;
+    return Boolean(hasOpenProperty || modal.hasAttribute("open"));
   });
 }
 

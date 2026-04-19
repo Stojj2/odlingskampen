@@ -1033,7 +1033,8 @@ function bindEvents() {
       notify(`Videobakgrund sparad: ${file.name}`);
     } catch (error) {
       console.warn("Videouppladdningen misslyckades.", error);
-      notify("Det gick inte att ladda upp videon.");
+      const message = error instanceof Error && error.message ? error.message : "Det gick inte att ladda upp videon.";
+      notify(message);
     } finally {
       window.setTimeout(() => {
         clearPresentationBackgroundUploadProgress();
@@ -3609,7 +3610,25 @@ async function uploadPresentationBackgroundVideo(file) {
         return;
       }
       if (xhr.status < 200 || xhr.status >= 300) {
-        reject(new Error(`Status ${xhr.status}`));
+        let errorMessage = "";
+        const payload = xhr.response && typeof xhr.response === "object" ? xhr.response : null;
+        if (payload && typeof payload.error === "string" && payload.error.trim()) {
+          errorMessage = payload.error.trim();
+        } else if (typeof xhr.responseText === "string" && xhr.responseText.trim()) {
+          try {
+            const parsed = JSON.parse(xhr.responseText);
+            if (parsed && typeof parsed.error === "string" && parsed.error.trim()) {
+              errorMessage = parsed.error.trim();
+            }
+          } catch {}
+        }
+        if (!errorMessage) {
+          errorMessage =
+            xhr.status === 413
+              ? "Videofilen är för stor. Komprimera videon och försök igen."
+              : `Videouppladdningen misslyckades (status ${xhr.status}).`;
+        }
+        reject(new Error(errorMessage));
         return;
       }
 

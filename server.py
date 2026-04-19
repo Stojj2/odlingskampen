@@ -7,7 +7,6 @@ import cgi
 import getpass
 import hashlib
 import hmac
-import io
 import json
 import os
 import re
@@ -72,6 +71,19 @@ LOGIN_MAX_ATTEMPTS = 10
 LOGIN_BLOCK_SECONDS = 10 * 60
 LOGIN_ATTEMPT_LOCK = threading.Lock()
 LOGIN_ATTEMPTS: dict[str, dict[str, float]] = {}
+
+
+def read_max_video_upload_bytes() -> int:
+    raw_value = os.getenv("ODLINGSKAMPEN_MAX_VIDEO_UPLOAD_MB", "200")
+    try:
+        megabytes = float(str(raw_value).strip())
+    except (TypeError, ValueError):
+        megabytes = 200.0
+    safe_megabytes = max(5.0, min(1024.0, megabytes))
+    return int(safe_megabytes * 1024 * 1024)
+
+
+MAX_VIDEO_UPLOAD_BYTES = read_max_video_upload_bytes()
 
 
 def utc_now_iso() -> str:
@@ -606,7 +618,7 @@ def store_uploaded_image(payload: object, allowed_participant_id: str = "") -> d
     return {"path": f"/{relative_path}"}
 
 
-def store_uploaded_video(file_name: str, mime_type: str, video_bytes: bytes) -> dict:
+def store_uploaded_video(file_name: str, mime_type: str, video_stream: object) -> dict:
     safe_name = sanitize_text(Path(file_name).stem, 80) or "presentation-background"
     clean_mime_type = sanitize_text(mime_type, 80).lower()
     extension = VIDEO_EXTENSIONS.get(clean_mime_type)
@@ -615,14 +627,43 @@ def store_uploaded_video(file_name: str, mime_type: str, video_bytes: bytes) -> 
         extension = guessed_extension if guessed_extension in {".mp4", ".webm"} else ""
     if extension not in {".mp4", ".webm"}:
         raise ValueError("Only MP4 and WebM videos are supported.")
-    if not video_bytes:
-        raise ValueError("Empty video payload.")
+    if not hasattr(video_stream, "read"):
+        raise ValueError("Invalid video payload.")
 
     presentation_dir = UPLOADS_DIR / "presentation"
     presentation_dir.mkdir(parents=True, exist_ok=True)
     timestamp = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S%f")
     file_path = presentation_dir / f"{safe_name}-{timestamp}{extension}"
-    file_path.write_bytes(video_bytes)
+    bytes_written = 0
+
+    try:
+        with file_path.open("wb") as output_file:
+            while True:
+                chunk = video_stream.read(1024 * 1024)
+                if not chunk:
+                    break
+                if not isinstance(chunk, (bytes, bytearray)):
+                    raise ValueError("Invalid video payload.")
+                bytes_written += len(chunk)
+                if bytes_written > MAX_VIDEO_UPLOAD_BYTES:
+                    raise ValueError(
+                        f"Video file too large. Maximum size is {MAX_VIDEO_UPLOAD_BYTES // (1024 * 1024)} MB."
+                    )
+                output_file.write(chunk)
+    except Exception:
+        try:
+            file_path.unlink()
+        except FileNotFoundError:
+            pass
+        raise
+
+    if bytes_written <= 0:
+        try:
+            file_path.unlink()
+        except FileNotFoundError:
+            pass
+        raise ValueError("Empty video payload.")
+
     relative_path = file_path.relative_to(BASE_DIR).as_posix()
     return {"path": f"/{relative_path}"}
 
@@ -1481,9 +1522,11 @@ class AppHandler(SimpleHTTPRequestHandler):
             self.send_error(HTTPStatus.NOT_FOUND, "Unknown endpoint")
             return
 
-        content_length = int(self.headers.get("Content-Length", "0"))
+        try:
+            content_length = int(self.headers.get("Content-Length", "0"))
+        except (TypeError, ValueError):
+            content_length = 0
         content_type = self.headers.get("Content-Type", "")
-        body = self.rfile.read(content_length) if content_length > 0 else b"{}"
 
         if parsed.path == "/api/upload-video":
             session = self._require_auth(parsed)
@@ -1495,6 +1538,16 @@ class AppHandler(SimpleHTTPRequestHandler):
             if not content_type.lower().startswith("multipart/form-data"):
                 self._send_json({"error": "Expected multipart form data."}, status=HTTPStatus.BAD_REQUEST)
                 return
+            if content_length <= 0:
+                self._send_json({"error": "Empty video payload."}, status=HTTPStatus.BAD_REQUEST)
+                return
+            # Reject clearly oversized uploads early (multipart body includes some overhead).
+            if content_length > (MAX_VIDEO_UPLOAD_BYTES + (5 * 1024 * 1024)):
+                self._send_json(
+                    {"error": f"Video file too large. Maximum size is {MAX_VIDEO_UPLOAD_BYTES // (1024 * 1024)} MB."},
+                    status=HTTPStatus.REQUEST_ENTITY_TOO_LARGE,
+                )
+                return
             try:
                 environ = {
                     "REQUEST_METHOD": "POST",
@@ -1502,7 +1555,7 @@ class AppHandler(SimpleHTTPRequestHandler):
                     "CONTENT_LENGTH": str(content_length),
                 }
                 form = cgi.FieldStorage(
-                    fp=io.BytesIO(body),
+                    fp=self.rfile,
                     headers=self.headers,
                     environ=environ,
                     keep_blank_values=True,
@@ -1510,20 +1563,28 @@ class AppHandler(SimpleHTTPRequestHandler):
                 file_item = form["file"] if "file" in form else None
                 if file_item is None or not getattr(file_item, "file", None):
                     raise ValueError("No video file provided.")
-                file_bytes = file_item.file.read()
+                if hasattr(file_item.file, "seek"):
+                    try:
+                        file_item.file.seek(0)
+                    except Exception:
+                        pass
                 stored_video = store_uploaded_video(
                     getattr(file_item, "filename", "") or "presentation-background.mp4",
                     getattr(file_item, "type", "") or "",
-                    file_bytes,
+                    file_item.file,
                 )
             except ValueError as error:
-                self._send_json({"error": str(error)}, status=HTTPStatus.BAD_REQUEST)
+                error_text = str(error)
+                status = HTTPStatus.REQUEST_ENTITY_TOO_LARGE if "too large" in error_text.lower() else HTTPStatus.BAD_REQUEST
+                self._send_json({"error": error_text}, status=status)
                 return
             except Exception:
                 self._send_json({"error": "Could not store video."}, status=HTTPStatus.BAD_REQUEST)
                 return
             self._send_json(stored_video)
             return
+
+        body = self.rfile.read(content_length) if content_length > 0 else b"{}"
 
         try:
             payload = json.loads(body.decode("utf-8"))
