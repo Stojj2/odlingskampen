@@ -1872,22 +1872,6 @@ function openModalElement(modal) {
     return;
   }
   setBodyModalLock(true);
-
-  if (typeof modal.show === "function") {
-    modal.show();
-    return;
-  }
-
-  if (typeof modal.openModal === "function") {
-    modal.openModal();
-    return;
-  }
-
-  if (typeof modal.showModal === "function") {
-    modal.showModal();
-    return;
-  }
-
   modal.classList.remove("hide");
   modal.classList.add("show");
   modal.hidden = false;
@@ -1895,44 +1879,16 @@ function openModalElement(modal) {
   modal.setAttribute("show", "");
   modal.setAttribute("open", "");
 
-  if ("open" in modal) {
-    try {
-      modal.open = true;
-    } catch {}
-  }
-
-  if ("show" in modal) {
-    try {
-      modal.show = true;
-    } catch {}
-  }
-
   const backdrop = modal.shadowRoot?.querySelector(".tds-modal-backdrop");
   if (backdrop instanceof HTMLElement) {
     backdrop.style.display = "block";
   }
+
+  window.setTimeout(syncBodyModalLock, 0);
 }
 
 function closeModalElement(modal) {
   if (!modal) {
-    return;
-  }
-
-  if (typeof modal.hide === "function") {
-    modal.hide();
-    window.setTimeout(syncBodyModalLock, 0);
-    return;
-  }
-
-  if (typeof modal.dismiss === "function") {
-    modal.dismiss();
-    window.setTimeout(syncBodyModalLock, 0);
-    return;
-  }
-
-  if (typeof modal.close === "function") {
-    modal.close();
-    window.setTimeout(syncBodyModalLock, 0);
     return;
   }
 
@@ -1941,18 +1897,6 @@ function closeModalElement(modal) {
   modal.setAttribute("hide", "");
   modal.removeAttribute("open");
   modal.removeAttribute("show");
-
-  if ("open" in modal) {
-    try {
-      modal.open = false;
-    } catch {}
-  }
-
-  if ("show" in modal) {
-    try {
-      modal.show = false;
-    } catch {}
-  }
 
   const backdrop = modal.shadowRoot?.querySelector(".tds-modal-backdrop");
   if (backdrop instanceof HTMLElement) {
@@ -1967,10 +1911,27 @@ function bindImageAdjustTouchGuards() {
   const controls = [dom.imageAdjustScale, dom.imageAdjustOffsetX, dom.imageAdjustOffsetY].filter(
     (control) => control instanceof HTMLElement,
   );
+  const mobileTouchContext = window.matchMedia("(max-width: 720px), (pointer: coarse)").matches;
 
   controls.forEach((control) => {
     if (control instanceof HTMLInputElement && control.type === "range") {
-      control.style.touchAction = "pan-x";
+      if (!mobileTouchContext) {
+        return;
+      }
+      control.style.touchAction = "none";
+      const handleRangeTouch = (event) => {
+        if (!runtime.imageAdjustSession) {
+          return;
+        }
+        const updated = updateRangeValueFromTouch(control, event);
+        if (updated) {
+          event.preventDefault();
+          event.stopPropagation();
+        }
+      };
+      control.addEventListener("touchstart", handleRangeTouch, { passive: false });
+      control.addEventListener("touchmove", handleRangeTouch, { passive: false });
+      control.addEventListener("touchend", handleRangeTouch, { passive: false });
       return;
     }
 
@@ -1987,6 +1948,55 @@ function bindImageAdjustTouchGuards() {
   });
 }
 
+function updateRangeValueFromTouch(control, event) {
+  if (!(control instanceof HTMLInputElement) || control.type !== "range") {
+    return false;
+  }
+
+  const touchList =
+    event.touches && event.touches.length
+      ? event.touches
+      : event.changedTouches && event.changedTouches.length
+        ? event.changedTouches
+        : null;
+  const touch = touchList ? touchList[0] : null;
+  if (!touch) {
+    return false;
+  }
+
+  const rect = control.getBoundingClientRect();
+  if (!rect.width) {
+    return false;
+  }
+
+  const min = Number(control.min || "0");
+  const max = Number(control.max || "100");
+  if (!Number.isFinite(min) || !Number.isFinite(max) || max <= min) {
+    return false;
+  }
+
+  let ratio = (touch.clientX - rect.left) / rect.width;
+  ratio = Math.min(1, Math.max(0, ratio));
+  let value = min + ratio * (max - min);
+
+  const stepRaw = control.step || "1";
+  const step = Number(stepRaw);
+  if (Number.isFinite(step) && step > 0) {
+    const snapped = Math.round((value - min) / step) * step + min;
+    const precision = stepRaw.includes(".") ? stepRaw.split(".")[1].length : 0;
+    value = Number(snapped.toFixed(Math.max(0, precision)));
+  }
+
+  const nextValue = String(value);
+  if (control.value === nextValue) {
+    return true;
+  }
+
+  control.value = nextValue;
+  control.dispatchEvent(new Event("input", { bubbles: true }));
+  return true;
+}
+
 function hasOpenModal() {
   const modalNodes = Array.from(document.querySelectorAll("tds-modal"));
   return modalNodes.some((modal) => {
@@ -1997,12 +2007,6 @@ function hasOpenModal() {
       return true;
     }
     if (modal.hasAttribute("open") || modal.hasAttribute("show")) {
-      return true;
-    }
-    if ("open" in modal && modal.open) {
-      return true;
-    }
-    if ("show" in modal && modal.show) {
       return true;
     }
     return false;
